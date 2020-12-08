@@ -22,17 +22,18 @@ declare(strict_types=1);
 
 namespace Centreon\Domain\Monitoring;
 
+use Centreon\Domain\Entity\EntityValidator;
+use Centreon\Domain\Monitoring\ResourceGroup;
+use Centreon\Domain\Monitoring\ResourceFilter;
+use Centreon\Domain\Repository\RepositoryException;
+use Centreon\Domain\Service\AbstractCentreonService;
+use Centreon\Domain\Monitoring\Resource as ResourceEntity;
 use Centreon\Domain\Monitoring\Exception\ResourceException;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Centreon\Domain\Monitoring\Interfaces\ResourceServiceInterface;
 use Centreon\Domain\Monitoring\Interfaces\ResourceRepositoryInterface;
-use Centreon\Domain\Monitoring\Interfaces\MonitoringRepositoryInterface;
 use Centreon\Domain\Security\Interfaces\AccessGroupRepositoryInterface;
-use Centreon\Domain\Service\AbstractCentreonService;
-use Centreon\Domain\Monitoring\ResourceFilter;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
-use Centreon\Domain\Entity\EntityValidator;
-use Symfony\Component\Validator\ConstraintViolationListInterface;
-use Centreon\Domain\Repository\RepositoryException;
+use Centreon\Domain\Monitoring\Interfaces\MonitoringRepositoryInterface;
 
 /**
  * Service manage the resources in real-time monitoring : hosts and services.
@@ -143,6 +144,18 @@ class ResourceService extends AbstractCentreonService implements ResourceService
                 $resource->setAcknowledgement($acknowledgements[0]);
             }
         }
+
+        $hostgroups = $this->monitoringRepository
+            ->findHostGroups($resource->getId());
+
+
+        $resourcegroups = [];
+
+        foreach ($hostgroups as $hostgroup) {
+            $resourcegroups[] = new ResourceGroup($hostgroup->getId(), $hostgroup->getName());
+        }
+
+        $resource->setGroups($resourcegroups);
     }
 
     /**
@@ -165,6 +178,17 @@ class ResourceService extends AbstractCentreonService implements ResourceService
                 $resource->setAcknowledgement($acknowledgements[0]);
             }
         }
+
+        $servicegroups = $this->monitoringRepository
+            ->findServiceGroupsByHostAndService($resource->getParent()->getId(), $resource->getId());
+
+        $resourcegroups = [];
+
+        foreach ($servicegroups as $servicegroup) {
+            $resourcegroups[] = new ResourceGroup($servicegroup->getId(), $servicegroup->getName());
+        }
+
+        $resource->setGroups($resourcegroups);
     }
 
     /**
