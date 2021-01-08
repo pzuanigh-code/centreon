@@ -29,6 +29,8 @@ interface Props {
   resource: Resource | ResourceDetails;
   timeline?: Array<TimelineEvent>;
   onAddComment?: (commentParameters: CommentParameters) => void;
+  tooltipX?: number;
+  onTooltipDisplay?: (x?: number) => void;
 }
 
 const useStyles = makeStyles<Theme, Pick<Props, 'graphHeight'>>((theme) => ({
@@ -39,6 +41,7 @@ const useStyles = makeStyles<Theme, Pick<Props, 'graphHeight'>>((theme) => ({
     gridGap: theme.spacing(1),
     height: '100%',
     justifyItems: 'center',
+    width: 'auto',
   },
   noDataContainer: {
     display: 'flex',
@@ -62,6 +65,8 @@ const PerformanceGraph = ({
   toggableLegend = false,
   eventAnnotationsActive = false,
   timeline,
+  tooltipX,
+  onTooltipDisplay,
   resource,
   onAddComment,
 }: Props): JSX.Element | null => {
@@ -93,7 +98,7 @@ const PerformanceGraph = ({
   }, [endpoint]);
 
   if (isNil(lineData) || isNil(timeline) || isNil(endpoint)) {
-    return <LoadingSkeleton />;
+    return <LoadingSkeleton graphHeight={graphHeight} />;
   }
 
   if (isEmpty(timeSeries) || isEmpty(lineData)) {
@@ -142,20 +147,24 @@ const PerformanceGraph = ({
       </Typography>
 
       <ParentSize>
-        {({ width, height }): JSX.Element => (
-          <Graph
-            width={width}
-            height={height}
-            timeSeries={timeSeries}
-            lines={displayedLines}
-            base={base as number}
-            xAxisTickFormat={xAxisTickFormat}
-            timeline={timeline}
-            resource={resource}
-            onAddComment={onAddComment}
-            eventAnnotationsActive={eventAnnotationsActive}
-          />
-        )}
+        {({ width, height }): JSX.Element => {
+          return (
+            <Graph
+              width={width}
+              height={height}
+              timeSeries={timeSeries}
+              lines={displayedLines}
+              base={base as number}
+              xAxisTickFormat={xAxisTickFormat}
+              timeline={timeline}
+              onTooltipDisplay={onTooltipDisplay}
+              tooltipX={tooltipX}
+              resource={resource}
+              onAddComment={onAddComment}
+              eventAnnotationsActive={eventAnnotationsActive}
+            />
+          );
+        }}
       </ParentSize>
       <div className={classes.legend}>
         <Legend

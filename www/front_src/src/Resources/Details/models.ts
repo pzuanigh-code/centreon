@@ -8,7 +8,11 @@ import {
   NamedEntity,
 } from '../models';
 
-export interface ResourceDetails extends NamedEntity {
+import { TimePeriodId } from './tabs/Graph/models';
+
+export interface ResourceDetails {
+  id: number;
+  name: string;
   status: Status;
   parent: Parent;
   links: ResourceLinks;
@@ -39,10 +43,24 @@ export interface ResourceDetails extends NamedEntity {
   groups?: Array<NamedEntity>;
 }
 
+export interface ServicesTabParameters {
+  graphMode: boolean;
+  selectedTimePeriodId?: TimePeriodId;
+}
+
+export interface GraphTabParameters {
+  selectedTimePeriodId?: TimePeriodId;
+}
+export interface TabParameters {
+  services?: ServicesTabParameters;
+  graph?: GraphTabParameters;
+}
+
 export interface DetailsUrlQueryParameters {
   id: number;
   parentId?: number;
   parentType?: string;
   type: string;
   tab?: string;
+  tabParameters?: TabParameters;
 }

@@ -110,6 +110,21 @@ const useStyles = makeStyles<Theme, Pick<Props, 'onAddComment'>>((theme) => ({
   },
 }));
 
+interface Props {
+  width: number;
+  height: number;
+  timeSeries: Array<TimeValue>;
+  base: number;
+  lines: Array<LineModel>;
+  xAxisTickFormat: string;
+  timeline?: Array<TimelineEvent>;
+  onTooltipDisplay?: (x?: number) => void;
+  tooltipX?: number;
+  resource: Resource | ResourceDetails;
+  onAddComment?: (commentParameters: CommentParameters) => void;
+  eventAnnotationsActive: boolean;
+}
+
 const getScale = ({
   values,
   height,
@@ -135,6 +150,8 @@ const Graph = ({
   lines,
   xAxisTickFormat,
   timeline,
+  tooltipX,
+  onTooltipDisplay,
   resource,
   onAddComment,
   eventAnnotationsActive,
@@ -155,6 +172,7 @@ const Graph = ({
     showTooltip,
     hideTooltip,
   } = useTooltip();
+  const [isMouseOver, setIsMouseOver] = React.useState(false);
   const {
     tooltipLeft: addCommentTooltipLeft,
     tooltipTop: addCommentTooltipTop,
@@ -257,35 +275,61 @@ const Graph = ({
     return timeSeries[index];
   };
 
+  const showTooltipAt = ({ x, y }): void => {
+    const timeValue = getTimeValue(x);
+
+    const metrics = getMetrics(timeValue);
+
+    const metricsToDisplay = metrics.filter((metric) => {
+      const line = getLineForMetric({ lines, metric });
+
+      return !isNil(timeValue[metric]) && !isNil(line);
+    });
+
+    showTooltip({
+      tooltipLeft: x,
+      tooltipTop: y,
+      tooltipData: isEmpty(metricsToDisplay) ? undefined : (
+        <MetricsTooltip
+          timeValue={timeValue}
+          lines={lines}
+          base={base}
+          metrics={metricsToDisplay}
+        />
+      ),
+    });
+  };
+
   const displayTooltip = React.useCallback(
     (event) => {
+      setIsMouseOver(true);
       const { x, y } = localPoint(event) || { x: 0, y: 0 };
 
-      const timeValue = getTimeValue(x);
+      showTooltipAt({ x, y });
 
-      const metrics = getMetrics(timeValue);
-
-      const metricsToDisplay = metrics.filter((metric) => {
-        const line = getLineForMetric({ lines, metric });
-
-        return !isNil(timeValue[metric]) && !isNil(line);
-      });
-
-      showTooltip({
-        tooltipLeft: x,
-        tooltipTop: y,
-        tooltipData: isEmpty(metricsToDisplay) ? undefined : (
-          <MetricsTooltip
-            timeValue={timeValue}
-            lines={lines}
-            base={base}
-            metrics={metricsToDisplay}
-          />
-        ),
-      });
+      onTooltipDisplay?.(x);
     },
     [showTooltip, containerBounds, lines],
   );
+
+  React.useEffect(() => {
+    if (isMouseOver) {
+      return;
+    }
+
+    if (isNil(tooltipX)) {
+      hideTooltip();
+      return;
+    }
+
+    showTooltipAt({ x: tooltipX, y: 20 });
+  }, [tooltipX]);
+
+  const closeTooltip = (): void => {
+    hideTooltip();
+    setIsMouseOver(false);
+    onTooltipDisplay?.();
+  };
 
   const displayAddCommentTooltip = (event): void => {
     if (!canComment([resource]) || isNil(onAddComment)) {
@@ -332,7 +376,7 @@ const Graph = ({
             {tooltipData}
           </TooltipWithBounds>
         )}
-        <svg width={width} height={height} ref={containerRef}>
+        <svg width="100%" height={height} ref={containerRef}>
           <Group left={margin.left} top={margin.top}>
             <MemoizedGridRows
               scale={leftScale}
@@ -381,14 +425,14 @@ const Graph = ({
               className={classes.overlay}
               onClick={displayAddCommentTooltip}
               onMouseMove={displayTooltip}
-              onMouseLeave={hideTooltip}
+              onMouseLeave={closeTooltip}
             />
             {tooltipData && (
               <Line
                 from={{ x: tooltipLineLeft, y: 0 }}
                 to={{ x: tooltipLineLeft, y: graphHeight }}
-                stroke={grey[300]}
-                strokeWidth={2}
+                stroke={grey[400]}
+                strokeWidth={1}
                 pointerEvents="none"
               />
             )}
