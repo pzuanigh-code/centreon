@@ -79,6 +79,8 @@ interface Props {
   base: number;
   lines: Array<LineModel>;
   xAxisTickFormat: string;
+  tooltipX?: number;
+  onTooltipDisplay?: (tooltipX?: number) => void;
   timeline?: Array<TimelineEvent>;
   resource: Resource | ResourceDetails;
   onAddComment?: (commentParameters: CommentParameters) => void;
@@ -109,21 +111,6 @@ const useStyles = makeStyles<Theme, Pick<Props, 'onAddComment'>>((theme) => ({
     fontSize: 10,
   },
 }));
-
-interface Props {
-  width: number;
-  height: number;
-  timeSeries: Array<TimeValue>;
-  base: number;
-  lines: Array<LineModel>;
-  xAxisTickFormat: string;
-  timeline?: Array<TimelineEvent>;
-  onTooltipDisplay?: (x?: number) => void;
-  tooltipX?: number;
-  resource: Resource | ResourceDetails;
-  onAddComment?: (commentParameters: CommentParameters) => void;
-  eventAnnotationsActive: boolean;
-}
 
 const getScale = ({
   values,
