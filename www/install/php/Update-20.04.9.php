@@ -20,7 +20,7 @@
  */
 
 // error specific content
-$versionOfTheUpgrade = 'UPGRADE - 20.10.3 : ';
+$versionOfTheUpgrade = 'UPGRADE - 20.04.9 : ';
 $errorMessage = '';
 
 try {
