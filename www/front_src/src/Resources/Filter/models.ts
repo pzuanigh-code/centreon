@@ -1,3 +1,5 @@
+import { SortOrder } from '../Listing/models';
+
 export interface CriteriaValue {
   id: number | string;
   name: string;
@@ -16,13 +18,14 @@ export interface Filter {
   id: string | number;
   name: string;
   criterias: Criterias;
+  sort: [string, SortOrder];
 }
 
 export interface RawCriteria {
   name: string;
   object_type?: string;
   type: string;
-  value?: Array<CriteriaValue> | string | boolean;
+  value?: Array<CriteriaValue> | string | boolean | [string, SortOrder];
 }
 
 export interface RawFilter {

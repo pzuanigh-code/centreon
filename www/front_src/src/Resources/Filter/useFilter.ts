@@ -8,6 +8,8 @@ import {
   getUrlQueryParameters,
 } from '@centreon/ui';
 
+import { SortOrder } from '../Listing/models';
+
 import {
   getStoredOrDefaultFilter,
   clearCachedFilter,
@@ -32,8 +34,10 @@ type CustomFiltersDispatch = React.Dispatch<
 export interface FilterState {
   customFilters: Array<Filter>;
   filter: Filter;
-  updatedFilter: Filter;
+  updatedFilter: Omit<Filter, 'sort'>;
+  filters: Array<Filter>;
   setFilter: FilterDispatch;
+  setNewFilter: (sort: [string, SortOrder]) => void;
   currentSearch?: string;
   setCurrentSearch: SearchDispatch;
   nextSearch?: string;
@@ -64,7 +68,14 @@ const useFilter = (): FilterState => {
     decoder: listCustomFiltersDecoder,
   });
 
-  const { unhandledProblemsFilter, allFilter, newFilter } = useFilterModels();
+  const {
+    unhandledProblemsFilter,
+    allFilter,
+    newFilter,
+    resourceProblemsFilter,
+    isCustom,
+  } = useFilterModels();
+
   const { toFilter, toFilterWithTranslatedCriterias } = useAdapters();
 
   const getDefaultFilter = (): Filter => {
@@ -73,11 +84,26 @@ const useFilter = (): FilterState => {
     const urlQueryParameters = getUrlQueryParameters();
 
     if (hasPath(['filter'], urlQueryParameters)) {
-      return pipe(
+      const filterFromQueryParameters = pipe(
         mergeDeepLeft(urlQueryParameters.filter as Filter) as (t) => Filter,
         mergeDeepRight(allFilter) as (t) => Filter,
         toFilterWithTranslatedCriterias,
       )(newFilter) as Filter;
+
+      const getSort = (): [string, SortOrder] => {
+        const { sortf, sorto } = urlQueryParameters;
+
+        if (sorto && sortf) {
+          return [sortf as string, sorto as SortOrder];
+        }
+
+        return defaultFilter.sort;
+      };
+
+      return {
+        ...filterFromQueryParameters,
+        sort: getSort(),
+      };
     }
 
     return defaultFilter;
@@ -145,6 +171,13 @@ const useFilter = (): FilterState => {
     },
   };
 
+  const filters = [
+    unhandledProblemsFilter,
+    allFilter,
+    resourceProblemsFilter,
+    ...customFilters,
+  ];
+
   React.useEffect(() => {
     loadCustomFilters();
   }, []);
@@ -210,11 +243,24 @@ const useFilter = (): FilterState => {
     clearCachedFilter();
   });
 
+  const setNewFilter = (sort: [string, SortOrder]): void => {
+    if (isCustom(filter)) {
+      return;
+    }
+    setFilter({
+      ...newFilter,
+      criterias: filter.criterias,
+      sort,
+    });
+  };
+
   return {
     filter,
     setFilter,
     updatedFilter,
+    filters,
     customFilters,
+    setNewFilter,
     currentSearch,
     setCurrentSearch,
     nextSearch,

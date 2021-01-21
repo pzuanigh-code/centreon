@@ -20,6 +20,7 @@ import {
   labelUnhandledProblems,
   labelResourceProblems,
 } from '../translatedLabels';
+import { defaultSortField, defaultSortOrder } from '../Listing/columns';
 
 import { Filter, CriteriaValue } from './models';
 
@@ -142,7 +143,12 @@ const useFilterModels = (): FilterModelsContext => {
     pendingStatus,
   ];
 
-  const allFilter = {
+  const newFilter = {
+    id: '',
+    name: t(labelNewFilter),
+  } as Filter;
+
+  const allFilter: Filter = {
     id: 'all',
     name: t(labelAll),
     criterias: {
@@ -153,12 +159,8 @@ const useFilterModels = (): FilterModelsContext => {
       serviceGroups: [],
       search: undefined,
     },
+    sort: [defaultSortField, defaultSortOrder],
   };
-
-  const newFilter = {
-    id: '',
-    name: t(labelNewFilter),
-  } as Filter;
 
   const unhandledProblemsFilter: Filter = {
     id: 'unhandled_problems',
@@ -171,6 +173,7 @@ const useFilterModels = (): FilterModelsContext => {
       hostGroups: [],
       serviceGroups: [],
     },
+    sort: [defaultSortField, defaultSortOrder],
   };
 
   const resourceProblemsFilter: Filter = {
@@ -184,6 +187,7 @@ const useFilterModels = (): FilterModelsContext => {
       serviceGroups: [],
       search: undefined,
     },
+    sort: [defaultSortField, defaultSortOrder],
   };
 
   const standardFilterById = {

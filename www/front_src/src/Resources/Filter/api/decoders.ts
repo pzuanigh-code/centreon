@@ -3,6 +3,7 @@ import { JsonDecoder } from 'ts.data.json';
 import { buildListingDecoder } from '@centreon/ui';
 
 import { CriteriaValue, RawCriteria, RawFilter } from '../models';
+import { SortOrder } from '../../Listing/models';
 
 const entityDecoder = JsonDecoder.object<RawFilter>(
   {
@@ -15,7 +16,9 @@ const entityDecoder = JsonDecoder.object<RawFilter>(
           object_type: JsonDecoder.optional(JsonDecoder.string),
           type: JsonDecoder.string,
           value: JsonDecoder.optional(
-            JsonDecoder.oneOf<string | boolean | Array<CriteriaValue>>(
+            JsonDecoder.oneOf<
+              string | boolean | Array<CriteriaValue> | [string, SortOrder]
+            >(
               [
                 JsonDecoder.string,
                 JsonDecoder.boolean,
@@ -24,13 +27,26 @@ const entityDecoder = JsonDecoder.object<RawFilter>(
                     {
                       id: JsonDecoder.oneOf<number | string>(
                         [JsonDecoder.number, JsonDecoder.string],
-                        'FilterCriteriaMilteSelectId',
+                        'FilterCriteriaMultiSelectId',
                       ),
                       name: JsonDecoder.string,
                     },
                     'FilterCriteriaMultiSelectValue',
                   ),
                   'FilterCriteriaValues',
+                ),
+                JsonDecoder.tuple(
+                  [
+                    JsonDecoder.string,
+                    JsonDecoder.oneOf<'asc' | 'desc'>(
+                      [
+                        JsonDecoder.isExactly('asc'),
+                        JsonDecoder.isExactly('desc'),
+                      ],
+                      'FilterCriteriaSortOrder',
+                    ),
+                  ],
+                  'FilterCriteriaTuple',
                 ),
               ],
               'FilterCriteriaValue',

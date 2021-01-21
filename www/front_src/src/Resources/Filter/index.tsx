@@ -84,13 +84,12 @@ const Filter = (): JSX.Element => {
     resourceTypes: availableResourceTypes,
     statuses: availableStatuses,
     standardFilterById,
-    isCustom,
-    newFilter,
   } = useFilterModels();
 
   const {
     filter,
     setFilter,
+    setNewFilter,
     setCurrentSearch,
     nextSearch,
     setNextSearch,
@@ -106,6 +105,10 @@ const Filter = (): JSX.Element => {
     setServiceGroups,
     customFilters,
     customFiltersLoading,
+    sorto,
+    sortf,
+    setSortf,
+    setSorto,
   } = useResourceContext();
 
   const getConnectedAutocompleteEndpoint = (buildEndpoint) => ({
@@ -117,13 +120,6 @@ const Filter = (): JSX.Element => {
       page,
       search,
     });
-  };
-
-  const setNewFilter = (): void => {
-    if (isCustom(filter)) {
-      return;
-    }
-    setFilter({ ...newFilter, criterias: filter.criterias });
   };
 
   const requestSearch = (): void => {
@@ -140,7 +136,7 @@ const Filter = (): JSX.Element => {
 
   const prepareSearch = (event): void => {
     setNextSearch(event.target.value);
-    setNewFilter();
+    setNewFilter([sortf, sorto]);
   };
 
   const changeFilterGroup = (event): void => {
@@ -163,6 +159,8 @@ const Filter = (): JSX.Element => {
     setServiceGroups(updatedFilter.criterias.serviceGroups);
     setNextSearch(updatedFilter.criterias.search);
     setCurrentSearch(updatedFilter.criterias.search);
+    setSortf(updatedFilter.sort[0]);
+    setSorto(updatedFilter.sort[1]);
   };
 
   const clearAllFilters = (): void => {
@@ -174,21 +172,23 @@ const Filter = (): JSX.Element => {
     setServiceGroups(allFilter.criterias.serviceGroups);
     setNextSearch('');
     setCurrentSearch('');
+    setSortf(allFilter.sort[0]);
+    setSortf(allFilter.sort[1]);
   };
 
   const changeResourceTypes = (_, updatedResourceTypes): void => {
     setResourceTypes(updatedResourceTypes);
-    setNewFilter();
+    setNewFilter([sortf, sorto]);
   };
 
   const changeStates = (_, updatedStates): void => {
     setStates(updatedStates);
-    setNewFilter();
+    setNewFilter([sortf, sorto]);
   };
 
   const changeStatuses = (_, updatedStatuses): void => {
     setStatuses(updatedStatuses);
-    setNewFilter();
+    setNewFilter([sortf, sorto]);
   };
 
   const changeHostGroups = (_, updatedHostGroups): void => {

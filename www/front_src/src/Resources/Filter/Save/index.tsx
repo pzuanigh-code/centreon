@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { equals, or, and, not, isEmpty, omit } from 'ramda';
+import { equals, or, and, not, isEmpty, omit, find, propEq } from 'ramda';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -24,7 +24,6 @@ import {
 import { Filter } from '../models';
 import { useResourceContext } from '../../Context';
 import { updateFilter as updateFilterRequest } from '../api';
-import useFilterModels from '../useFilterModels';
 import useAdapters from '../api/adapters';
 
 import CreateFilterDialog from './CreateFilterDialog';
@@ -42,7 +41,6 @@ const SaveFilterMenu = (): JSX.Element => {
   const classes = useStyles();
 
   const { t } = useTranslation();
-  const { isCustom } = useFilterModels();
   const { toRawFilter, toFilter } = useAdapters();
 
   const [menuAnchor, setMenuAnchor] = React.useState<Element | null>(null);
@@ -61,6 +59,7 @@ const SaveFilterMenu = (): JSX.Element => {
 
   const {
     filter,
+    filters,
     updatedFilter,
     setFilter,
     setHostGroups,
@@ -68,6 +67,8 @@ const SaveFilterMenu = (): JSX.Element => {
     loadCustomFilters,
     customFilters,
     setEditPanelOpen,
+    sorto,
+    sortf,
   } = useResourceContext();
 
   const openSaveFilterMenu = (event: React.MouseEvent): void => {
@@ -108,10 +109,15 @@ const SaveFilterMenu = (): JSX.Element => {
     loadFiltersAndUpdateCurrent(newFilter);
   };
 
+  const updatedFilterWithSort = {
+    ...updatedFilter,
+    sort: [sortf, sorto],
+  } as Filter;
+
   const updateFilter = (): void => {
     sendUpdateFilterRequest({
       id: updatedFilter.id,
-      rawFilter: omit(['id'], toRawFilter(updatedFilter)),
+      rawFilter: omit(['id'], toRawFilter(updatedFilterWithSort)),
     }).then((savedFilter) => {
       closeSaveFilterMenu();
       showMessage({
@@ -129,11 +135,9 @@ const SaveFilterMenu = (): JSX.Element => {
   };
 
   const isFilterDirty = (): boolean => {
-    if (!isCustom(filter)) {
-      return false;
-    }
+    const retrievedFilter = find(propEq('id', filter.id), filters);
 
-    return !equals(filter, updatedFilter);
+    return !equals(retrievedFilter, updatedFilterWithSort);
   };
 
   const isNewFilter = filter.id === '';
@@ -171,7 +175,7 @@ const SaveFilterMenu = (): JSX.Element => {
         <CreateFilterDialog
           open
           onCreate={confirmCreateFilter}
-          filter={updatedFilter}
+          filter={updatedFilterWithSort}
           onCancel={closeCreateFilterDialog}
         />
       )}

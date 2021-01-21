@@ -2,6 +2,7 @@ import { propEq, pipe } from 'ramda';
 
 import { CriteriaValue, RawFilter, RawCriteria, Filter } from '../models';
 import useFilterModels from '../useFilterModels';
+import { SortOrder } from '../../Listing/models';
 
 interface Adapters {
   toFilter: (rawFilter: RawFilter) => Filter;
@@ -42,10 +43,11 @@ const useAdapters = (): Adapters => {
           .value as Array<CriteriaValue>,
         search: findCriteriaByName('search').value as string | undefined,
       },
+      sort: findCriteriaByName('sort').value as [string, SortOrder],
     };
   };
 
-  const toRawFilter = ({ id, name, criterias }: Filter): RawFilter => {
+  const toRawFilter = ({ id, name, criterias, sort }: Filter): RawFilter => {
     return {
       id,
       name,
@@ -81,6 +83,11 @@ const useAdapters = (): Adapters => {
           name: 'search',
           value: criterias.search || '',
           type: 'text',
+        },
+        {
+          name: 'sort',
+          value: sort,
+          type: 'array',
         },
       ],
     };
