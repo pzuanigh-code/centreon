@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { last, head, equals, reject, path, isNil } from 'ramda';
+import { last, head, equals, reject, path } from 'ramda';
 import axios from 'axios';
 import mockDate from 'mockdate';
 import {
@@ -41,7 +41,6 @@ import {
   labelPerformanceData,
   labelLast7Days,
   labelLast24h,
-  labelLast31Days,
   labelCopy,
   labelCommand,
   labelResourceFlapping,
