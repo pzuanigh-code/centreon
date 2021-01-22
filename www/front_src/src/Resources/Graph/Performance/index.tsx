@@ -101,7 +101,12 @@ const PerformanceGraph = ({
 
     setLineData(undefined);
 
-    sendGetGraphDataRequest(endpoint).then((graphData) => {
+    const edp =
+      resource.parent?.name === 'Centreon-Server'
+        ? 'http://localhost:5000/mock/graph'
+        : 'http://localhost:5000/mock/graph2';
+
+    sendGetGraphDataRequest(edp).then((graphData) => {
       setTimeSeries(getTimeSeries(graphData));
       setLineData(getLineData(graphData));
       setTitle(graphData.global.title);
