@@ -24,4 +24,5 @@ stage('Source') {
       CENTREON_GPG_FILE = credentials('centreon-gpg')
     }
     sh 'cat $CENTREON_GPG_FILE'
+  }
 }
