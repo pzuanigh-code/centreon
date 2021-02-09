@@ -159,9 +159,9 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
         // Search
         $searchRequest = $this->sqlRequestTranslator->translateSearchParameterToSql();
         $request .= $searchRequest;
-
         if ($contactId !== null) {
-            $request .= ' AND (agcr.contact_contact_id = :contact_id OR cgcr.contact_contact_id = :contact_id)';
+            $request .= ($searchRequest !== null) ? ' AND' : ' WHERE';
+            $request .= ' (agcr.contact_contact_id = :contact_id OR cgcr.contact_contact_id = :contact_id)';
         }
 
         // Sort
