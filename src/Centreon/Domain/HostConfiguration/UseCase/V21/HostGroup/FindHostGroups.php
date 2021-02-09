@@ -22,8 +22,9 @@ declare(strict_types=1);
 
 namespace Centreon\Domain\HostConfiguration\UseCase\V21\HostGroup;
 
+use Centreon\Domain\Contact\Interfaces\ContactInterface;
 use Centreon\Domain\HostConfiguration\Exception\HostGroupException;
-use Centreon\Domain\HostConfiguration\Interfaces\HostGroup\HostGroupReadRepositoryInterface;
+use Centreon\Domain\HostConfiguration\Interfaces\HostGroup\HostGroupServiceInterface;
 use Centreon\Domain\HostConfiguration\Model\HostGroup;
 
 /**
@@ -34,21 +35,28 @@ use Centreon\Domain\HostConfiguration\Model\HostGroup;
 class FindHostGroups
 {
     /**
-     * @var HostGroupReadRepositoryInterface
-     */
-    private $hostGroupReadRepository;
-
-    /**
      * @var string|null
      */
     private $mediaPath;
+    /**
+     * @var ContactInterface
+     */
+    private $contact;
+    /**
+     * @var HostGroupServiceInterface
+     */
+    private $hostGroupService;
 
     /**
-     * @param HostGroupReadRepositoryInterface $configurationReadRepository
+     * @param HostGroupServiceInterface $hostGroupService
+     * @param ContactInterface $contact
      */
-    public function __construct(HostGroupReadRepositoryInterface $configurationReadRepository)
-    {
-        $this->hostGroupReadRepository = $configurationReadRepository;
+    public function __construct(
+        HostGroupServiceInterface $hostGroupService,
+        ContactInterface $contact
+    ) {
+        $this->contact = $contact;
+        $this->hostGroupService = $hostGroupService;
     }
 
     /**
@@ -70,11 +78,10 @@ class FindHostGroups
      */
     public function execute(): FindHostGroupsResponse
     {
-        try {
-            $hostGroups = $this->hostGroupReadRepository->findHostGroups();
-        } catch (\Exception $ex) {
-            throw HostGroupException::searchHostGroupsException($ex);
-        }
+        $hostGroups = ($this->contact->isAdmin())
+            ? $this->hostGroupService->findAllWithoutAcl()
+            : $this->hostGroupService->findAllWithAcl();
+
         $this->updateMediaPaths($hostGroups);
         $response = new FindHostGroupsResponse();
         $response->setHostGroups($hostGroups);
