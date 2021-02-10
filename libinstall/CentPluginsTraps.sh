@@ -25,9 +25,9 @@
 ##
 ##    For information : infos@centreon.com
 
-echo -e "\n$line"
+echo -e "\n$headerline"
 echo -e "\t$(gettext "Starting CentreonTrapD Installation")"
-echo -e "$line"
+echo -e "$headerline"
 
 ###### Check disk space
 check_tmp_disk_space

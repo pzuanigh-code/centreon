@@ -74,7 +74,9 @@ TEXTDOMAIN=install.sh
 export TEXTDOMAIN
 
 # init variables
-line="------------------------------------------------------------------------"
+headerline="================================================================================"
+export headerline
+line="--------------------------------------------------------------------------------"
 export line
 
 ## log default vars 
@@ -180,7 +182,7 @@ ${CAT} << __EOT__
 #                               infos@centreon.com                            #
 #                                                                             #
 #                   Make sure you have installed and configured               #
-#         centreon-gorgone - sudo - sed - php - apache - rrdtool - mysql      #
+#         centreon-gorgone - sudo - sed - php - apache - rrdtool - mariadb    #
 #                                                                             #
 ###############################################################################
 __EOT__
@@ -188,18 +190,19 @@ __EOT__
 ## Test all binaries
 BINARIES="rm cp mv ${CHMOD} ${CHOWN} echo more mkdir find ${GREP} ${CAT} ${SED}"
 
-echo "$line"
-echo -e "\t$(gettext "Checking all needed binaries")"
-echo "$line"
+# Checking requirements
+echo -e "\n"
+echo_info "$(gettext "Checking needed binaries for installation script")"
+echo -e "$line"
 
 binary_fail="0"
 # For the moment, I check if all binary exists in path.
 # After, I must look a solution to use complet path by binary
 for binary in $BINARIES; do
 	if [ ! -e ${binary} ] ; then 
-		pathfind "$binary"
+		pathfind_ret "$binary" "PATH_BIN"
 		if [ "$?" -eq 0 ] ; then
-			echo_success "${binary}" "$ok"
+			echo_success "$PATH_BIN/${binary}" "$ok"
 		else 
 			echo_failure "${binary}" "$fail"
 			log "ERR" "$(gettext "\$binary not found in \$PATH")"
@@ -210,21 +213,6 @@ for binary in $BINARIES; do
 	fi
 done
 
-###### Mandatory step
-# ask if gorgone is already installed
-echo -e "\n$line"
-echo -e "\t$(gettext "Check mandatory gorgone service status")"
-echo -e "$line"
-
-yes_no_default "$(gettext "Is the Gorgone module already installed?")"
-if [ "$?" -ne 0 ] ; then
-    echo_failure "\n$(gettext "Gorgone is required.\nPlease install it before launching this script")" "$fail"
-    echo -e "\n\t$(gettext "Please read the documentation to manage the Gorgone daemon installation")"
-    echo -e "\t$(gettext "Available on github") : https://github.com/centreon/centreon-gorgone"
-    echo -e "\t$(gettext "or on the centreon documentation") : https://documentation.centreon.com/\n"
-    exit 1
-fi
-
 # Script stop if one binary wasn't found
 if [ "$binary_fail" -eq 1 ] ; then
 	echo_info "$(gettext "Please check fail binary and retry")"
@@ -232,25 +220,25 @@ if [ "$binary_fail" -eq 1 ] ; then
 fi
 
 # When you exec this script without file, you must valid a GPL licence.
-if [ "$silent_install" -ne 1 ] ; then 
-	echo -e "\n$(gettext "You will now read Centreon Licence.\\n\\tPress enter to continue.")"
-	read 
-	tput clear 
-	more "$BASE_DIR/LICENSE.md"
+# if [ "$silent_install" -ne 1 ] ; then 
+# 	echo -e "\n$(gettext "You will now read Centreon Licence.\\n\\tPress enter to continue.")"
+# 	read 
+# 	tput clear 
+# 	more "$BASE_DIR/LICENSE.md"
 
-	yes_no_default "$(gettext "Do you accept GPL license ?")" 
-	if [ "$?" -ne 0 ] ; then 
-		echo_info "$(gettext "As you did not accept the license, we cannot continue.")"
-		log "INFO" "Installation aborted - License not accepted"
-		exit 1
-	else
-		log "INFO" "Accepted the license"
-	fi
-else 
-	if [ "$upgrade" -eq 0 ] ; then
-		. $user_install_vars
-	fi
-fi
+# 	yes_no_default "$(gettext "Do you accept GPL license ?")" 
+# 	if [ "$?" -ne 0 ] ; then 
+# 		echo_info "$(gettext "As you did not accept the license, we cannot continue.")"
+# 		log "INFO" "Installation aborted - License not accepted"
+# 		exit 1
+# 	else
+# 		log "INFO" "Accepted the license"
+# 	fi
+# else 
+# 	if [ "$upgrade" -eq 0 ] ; then
+# 		. $user_install_vars
+# 	fi
+# fi
 
 if [ "$upgrade" -eq 1 ] ; then
 	# Test if instCent* file exist
@@ -270,60 +258,23 @@ if [ "$upgrade" -eq 1 ] ; then
 	fi
 fi
 
-if [ "$silent_install" -ne 1 ] ; then
-	echo "$line"
-	echo -e "\t$(gettext "Please choose what you want to install")"
-	echo "$line"
-fi
-
 ## init install process
 # I prefer split install script.
 # 0 = do not install
 # 1 = install
 # 2 = question in console
-[ -z $PROCESS_CENTREON_WWW ] && PROCESS_CENTREON_WWW="2"
-## For a moment, isn't possible to install standalone CentStorage daemon
-## without CentWeb
-[ -z $PROCESS_CENTSTORAGE ] && PROCESS_CENTSTORAGE="0"
-[ -z $PROCESS_CENTREON_PLUGINS ] && PROCESS_CENTREON_PLUGINS="2"
-[ -z $PROCESS_CENTREON_SNMP_TRAPS ] && PROCESS_CENTREON_SNMP_TRAPS="2"
-
-## install centreon perl lib
-if [ ! -d "$PERL_LIB_DIR/centreon/" ] ; then
-    mkdir "$PERL_LIB_DIR/centreon/"
-    log "INFO" "$(gettext "Created perl library directory")"
-fi
+[ -z $PROCESS_CENTREON_WWW ] && PROCESS_CENTREON_WWW="1"
 
 ## request centreon_www
 if [ "$PROCESS_CENTREON_WWW" -eq 2 ] ; then 
-	yes_no_default "$(gettext "Do you want to install") : Centreon Web Front"
+	yes_no_default "$(gettext "Do you want to install") : Centreon Web"
 	if [ "$?" -eq 0 ] ; then
 		PROCESS_CENTREON_WWW="1"
-		log "INFO" "$(gettext "You chose to install") : Centreon Web Front"
-		## CentStorage dependency
-		PROCESS_CENTSTORAGE="1"
+		log "INFO" "$(gettext "You chose to install") : Centreon Web"
 	fi
 fi
 
-## request centreon_plugins
-if [ "$PROCESS_CENTREON_PLUGINS" -eq 2 ] ; then 
-	yes_no_default "$(gettext "Do you want to install") : Centreon Nagios Plugins"
-	if [ "$?" -eq 0 ] ; then
-		PROCESS_CENTREON_PLUGINS="1"
-		log "INFO" "$(gettext "You chose to install") : Centreon Nagios Plugins"
-	fi
-fi
-
-## request centreon_snmp_traps
-if [ "$PROCESS_CENTREON_SNMP_TRAPS" -eq 2 ] ; then 
-	yes_no_default "$(gettext "Do you want to install") : CentreonTrapd process"
-	if [ "$?" -eq 0 ] ; then
-		PROCESS_CENTREON_SNMP_TRAPS="1"
-		log "INFO" "$(gettext "You chose to install") : CentreonTrapd process"
-	fi
-fi
-
-## Start Centreon Web Front install
+## Start installation
 if [ "$PROCESS_CENTREON_WWW" -eq 1 ] ; then 
 	if [ "$use_upgrade_files" -eq 1 -a -e "$inst_upgrade_dir/instCentWeb.conf" ] ; then
 		log "INFO" "$(gettext "Load variables:") $inst_upgrade_dir/instCentWeb.conf"
@@ -331,62 +282,25 @@ if [ "$PROCESS_CENTREON_WWW" -eq 1 ] ; then
 		. $inst_upgrade_dir/instCentWeb.conf
 		if [ -n "$NAGIOS_USER" ]; then
 			echo_info "$(gettext "Convert variables for upgrade:")"
-			MONITORINGENGINE_USER=$NAGIOS_USER
-			[ -n "$NAGIOS_GROUP" ] && MONITORINGENGINE_GROUP=$NAGIOS_GROUP
-			[ -n "$NAGIOS_ETC" ] && MONITORINGENGINE_ETC=$NAGIOS_ETC
-			[ -n "$NAGIOS_BINARY" ] && MONITORINGENGINE_BINARY=$NAGIOS_BINARY
+			ENGINE_USER=$NAGIOS_USER
+			[ -n "$NAGIOS_GROUP" ] && ENGINE_GROUP=$NAGIOS_GROUP
+			[ -n "$NAGIOS_ETC" ] && ENGINE_ETC=$NAGIOS_ETC
+			[ -n "$NAGIOS_BINARY" ] && ENGINE_BINARY=$NAGIOS_BINARY
+		fi
+	fi
+	if [ "$use_upgrade_files" -eq 1 -a -e "$inst_upgrade_dir/instCentPlugins.conf" ] ; then
+		log "INFO" "$(gettext "Load variables:") $inst_upgrade_dir/instCentPlugins.conf"
+
+		. $inst_upgrade_dir/instCentPlugins.conf
+		if [ -n "$NAGIOS_USER" ]; then
+			echo_info "$(gettext "Convert variables for upgrade:")"
+			ENGINE_USER=$NAGIOS_USER
+			[ -n "$NAGIOS_GROUP" ] && ENGINE_GROUP=$NAGIOS_GROUP
+			[ -n "$NAGIOS_ETC" ] && ENGINE_ETC=$NAGIOS_ETC
+			[ -n "$NAGIOS_PLUGIN" ] && PLUGIN_DIR=$NAGIOS_PLUGIN
 		fi
 	fi
 	. $INSTALL_DIR/CentWeb.sh
-fi
-
-## Start CentStorage install
-if [ "$PROCESS_CENTSTORAGE" -eq 1 ] ; then
-	if [ "$use_upgrade_files" -eq 1 -a -e "$inst_upgrade_dir/instCentStorage.conf" ] ; then
-		log "INFO" "$(gettext "Load variables:") $inst_upgrade_dir/instCentStorage.conf"
-
-		. $inst_upgrade_dir/instCentStorage.conf
-		if [ -n "$NAGIOS_USER" ]; then
-			echo_info "$(gettext "Convert variables for upgrade:")"
-			MONITORINGENGINE_USER=$NAGIOS_USER
-			[ -n "$NAGIOS_GROUP" ] && MONITORINGENGINE_GROUP=$NAGIOS_GROUP
-		fi
-	fi
-	. $INSTALL_DIR/CentStorage.sh
-fi
-
-## Start CentPlugins install
-if [ "$PROCESS_CENTREON_PLUGINS" -eq 1 ] ; then
-	if [ "$use_upgrade_files" -eq 1 -a -e "$inst_upgrade_dir/instCentPlugins.conf" ] ; then
-		log "INFO" "$(gettext "Load variables:") $inst_upgrade_dir/instCentPlugins.conf"
-
-		. $inst_upgrade_dir/instCentPlugins.conf
-		if [ -n "$NAGIOS_USER" ]; then
-			echo_info "$(gettext "Convert variables for upgrade:")"
-			MONITORINGENGINE_USER=$NAGIOS_USER
-			[ -n "$NAGIOS_GROUP" ] && MONITORINGENGINE_GROUP=$NAGIOS_GROUP
-			[ -n "$NAGIOS_ETC" ] && MONITORINGENGINE_ETC=$NAGIOS_ETC
-			[ -n "$NAGIOS_PLUGIN" ] && PLUGIN_DIR=$NAGIOS_PLUGIN
-		fi
-	fi
-	. $INSTALL_DIR/CentPlugins.sh
-fi
-
-## Start CentPluginsTraps install
-if [ "$PROCESS_CENTREON_SNMP_TRAPS" -eq 1 ] ; then
-	if [ "$use_upgrade_files" -eq 1 -a -e "$inst_upgrade_dir/instCentPlugins.conf" ] ; then
-		log "INFO" "$(gettext "Load variables:") $inst_upgrade_dir/instCentPlugins.conf"
-
-		. $inst_upgrade_dir/instCentPlugins.conf
-		if [ -n "$NAGIOS_USER" ]; then
-			echo_info "$(gettext "Convert variables for upgrade:")"
-			MONITORINGENGINE_USER=$NAGIOS_USER
-			[ -n "$NAGIOS_GROUP" ] && MONITORINGENGINE_GROUP=$NAGIOS_GROUP
-			[ -n "$NAGIOS_ETC" ] && MONITORINGENGINE_ETC=$NAGIOS_ETC
-			[ -n "$NAGIOS_PLUGIN" ] && PLUGIN_DIR=$NAGIOS_PLUGIN
-		fi
-	fi
-	. $INSTALL_DIR/CentPluginsTraps.sh
 fi
 
 ## Purge working directories
