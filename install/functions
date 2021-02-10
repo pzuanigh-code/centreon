@@ -53,6 +53,12 @@ SETCOLOR_FAILURE="\\033[1;31m"
 SETCOLOR_WARNING="\\033[1;33m"
 SETCOLOR_NORMAL="\\033[0;39m"
 
+echo_title() {
+    echo -e "\n"
+    echo -e "$1"
+    echo -e "--------------------------------------------------------------------------------"
+}
+
 #----
 ## print info message
 ## add info message to log file
@@ -794,12 +800,6 @@ locate_centreon_logdir() {
 ## @Globals	CENTREON_ETC, DEFAULT_CENTREON_ETC
 #----
 locate_centreon_etcdir() {
-    # if [ -n "$CENTREON_ETC" ] ; then
-    #     dir_test_create "$CENTREON_ETC"
-    #     if [ $? -ne 0 ] ; then
-    #         CENTREON_ETC=""
-    #     fi
-    # fi
     if [ -z "$CENTREON_ETC" ] ; then
         if [ "$upgrade" -eq 1 ] ; then
             answer_with_testdir "$(gettext "Where is your Centreon configuration directory?")" "$DEFAULT_CENTREON_ETC" "CENTREON_ETC"
@@ -810,6 +810,19 @@ locate_centreon_etcdir() {
     CENTREON_ETC=`trim ${CENTREON_ETC%/}`
     export CENTREON_ETC
     log "INFO" "CENTREON_ETC: $CENTREON_ETC"
+}
+
+locate_centreon_centcore() {
+    if [ -z "$CENTREON_CENTCORE" ] ; then
+        if [ "$upgrade" -eq 1 ] ; then
+            answer_with_testdir "$(gettext "Where is your Centreon Centcore directory?")" "$CENTREON_VARLIB/centcore" "CENTREON_CENTCORE"
+        else
+            answer "$(gettext "Where should we create Centreon Centcore directory?")" "$CENTREON_VARLIB/centcore" "CENTREON_CENTCORE"
+        fi
+    fi
+    CENTREON_CENTCORE=`trim ${CENTREON_CENTCORE%/}`
+    export CENTREON_CENTCORE
+    log "INFO" "CENTREON_CENTCORE: $CENTREON_CENTCORE"
 }
 
 #----
@@ -1054,25 +1067,6 @@ locate_php_bin() {
     PHP_BIN=`trim ${PHP_BIN%/}`
     export PHP_BIN
     log "INFO" "PHP_BIN: $PHP_BIN"
-}
-
-#----
-## Define where is php-pear (PEAR.php)
-## @Globals	PEAR_PATH, DEFAULT_PEAR_PATH
-#----
-locate_pear() {
-    testdir_clean "$PEAR_PATH" "PEAR_PATH"
-    if [ -z "$PEAR_PATH" ] ; then
-        if [ -f "$DEFAULT_PEAR_PATH/PEAR.php" ] ; then
-            PEAR_PATH="$DEFAULT_PEAR_PATH"
-        else
-            answer_with_testfile "$(gettext "Where is PEAR [PEAR.php] ")" "$DEFAULT_PEAR_PATH/PEAR.php" "PEAR_PATH"
-        fi
-        echo_success "Pear binary: $PEAR_PATH/PEAR.php" "$ok"
-    fi
-    PEAR_PATH=`dirname ${PEAR_PATH%/}`
-    export PEAR_PATH
-    log "INFO" "PEAR_PATH: $PEAR_PATH"
 }
 
 #----
@@ -1747,7 +1741,7 @@ __EOT__
 ## @Globals	NAGIOS_ETC, NAGIOS_USER, INIT_D, DIR_APACHE, NAGIOS_P1_FILE
 ## @Globals	NAGIOS_PLUGIN, NAGIOS_IMG, NAGIOS_BINARY, NAGIOSTATS_BINARY,
 ## @Globals	NAGIOS_VAR, RRD_PERL, SUDO_FILE, WEB_USER, WEB_GROUP,
-## @Globals	NAGIOS_GROUP, BIN_RRDTOOL, BIN_MAIL, PEAR_PATH, CENTREON_LOG,
+## @Globals	NAGIOS_GROUP, BIN_RRDTOOL, BIN_MAIL, CENTREON_LOG,
 ## @Globals	CENTREON_ETC, CENTREON_CACHEDIR, CRON_D, NDOMOD_BINARY
 #----
 createCentreonInstallConf() {
@@ -1759,7 +1753,6 @@ createCentreonInstallConf() {
 	WEB_GROUP=$WEB_GROUP
 	BIN_RRDTOOL=$BIN_RRDTOOL
 	BIN_MAIL=$BIN_MAIL
-	PEAR_PATH=$PEAR_PATH
 	CENTREON_LOG=$CENTREON_LOG
 	CENTREON_ETC=$CENTREON_ETC
 	CENTREON_BINDIR=$CENTREON_BINDIR
@@ -2090,9 +2083,9 @@ check_gorgone_user() {
 ## @Globals	TMP_DIR
 #----
 copy_in_tmp_dir() {
-    local srclistcp="bin cron config logrotate GPL_LIB lib snmptrapd src tmpl vendor www api libinstall .env .env.local.php bootstrap.php container.php composer.json package.json package-lock.json"
+    local srclistcp="bin cron config logrotate GPL_LIB lib snmptrapd src vendor www api install .env .env.local.php bootstrap.php container.php composer.json package.json package-lock.json"
 
-    echo "$(gettext "Preparing Centreon files in") '$TMP_DIR'"
+    echo "$(gettext "Copying files in") '$TMP_DIR'"
     if [ -d $TMP_DIR ] ; then
         echo_passed "$TMP_DIR $(gettext "exists, it will be moved...")"
         mv $TMP_DIR $TMP_DIR.`date +%Y%m%d-%k%m%S`
@@ -2104,44 +2097,6 @@ copy_in_tmp_dir() {
         log "INFO" "$(gettext "Copy") $BASE_DIR/$folder $(gettext "to") $TMP_DIR/source/"
         cp -Rf $BASE_DIR/$folder $TMP_DIR/source
     done
-}
-
-#----
-## use php script to check pear module
-## @param	list of pear modules
-## @return	return code of php script
-## @Globals	PHP_BIN, INSTALL_DIR
-#----
-check_pear_module() {
-    local module_list=$1
-    $PHP_BIN $INSTALL_DIR/check_pear.php check $module_list
-    return "$?"
-}
-
-#----
-## use php script to install missed pear module
-## @param	list of pear modules
-## @return	return code of php script
-## @Globals	PHP_BIN, INSTALL_DIR
-#----
-install_pear_module() {
-    local module_list=$1
-    echo -e "$(gettext "Installing PEAR modules")"
-    $PHP_BIN $INSTALL_DIR/check_pear.php install $module_list
-    return "$?"
-}
-
-#----
-## use php script to upgrade pear module
-## @param	list of pear modules
-## @return	return code of php script
-## @Globals	PHP_BIN, INSTALL_DIR
-#----
-upgrade_pear_module() {
-    local module_list=$1
-    echo -e "$(gettext "Upgrading PEAR modules")"
-    $PHP_BIN $INSTALL_DIR/check_pear.php upgrade $module_list
-    return "$?"
 }
 
 #----
