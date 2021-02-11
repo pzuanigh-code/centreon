@@ -282,9 +282,6 @@ final class ResourceRepositoryRDB extends AbstractRepositoryDRB implements Resou
                 . 'hg.hostgroup_id IN (' . implode(', ', $groupList) . ')';
         }
 
-        // Group
-        $request .= ' GROUP BY resource.id';
-
         // Sort
         $request .= $this->sqlRequestTranslator->translateSortParameterToSql()
             ?: ' ORDER BY resource.status_name DESC, resource.name ASC';
@@ -603,9 +600,6 @@ final class ResourceRepositoryRDB extends AbstractRepositoryDRB implements Resou
             $sql .= ' AND s.service_id IN (' . implode(', ', $serviceIds) . ')';
         }
 
-        // group by the service ID to preventing the duplication
-        $sql .= ' GROUP BY s.service_id';
-
         return $sql;
     }
 
@@ -758,8 +752,6 @@ final class ResourceRepositoryRDB extends AbstractRepositoryDRB implements Resou
             $sql .= ' AND h.host_id IN (' . implode(', ', $hostIds) . ')';
         }
 
-        // prevent duplication
-        $sql .= ' GROUP BY h.host_id';
         return $sql;
     }
 

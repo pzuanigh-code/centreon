@@ -1,4 +1,5 @@
 <?php
+
 /*
  * Copyright 2005 - 2019 Centreon (https://www.centreon.com/)
  *
@@ -270,7 +271,7 @@ final class ContactRepositoryRDB implements ContactRepositoryInterface
                 ON rules.acl_action_rule_id = actions.acl_action_id
             WHERE contact.contact_id = :contact_id
                 AND rules.acl_action_name IS NOT NULL
-            ORDER BY contact.contact_id, rules.acl_action_name';
+            ORDER BY rules.acl_action_name';
 
         $request = $this->translateDbName($request);
         $statement = $this->db->prepare($request);
