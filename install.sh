@@ -456,7 +456,8 @@ set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR" "775"
 
 ### Web directory
 copy_dir "$TMP_DIR/source/www" "$BUILD_DIR/$CENTREON_INSTALL_DIR/www"
-copy_file "$TMP_DIR/source/install/install.conf.php" "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/install.conf.php"
+copy_file "$TMP_DIR/source/install/install.conf.php" \
+    "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/installinstall.conf.php"
 set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "$CENTREON_USER" "$CENTREON_GROUP"
 set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "775"
 set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/*" "775"
@@ -568,7 +569,6 @@ if [ "$?" -ne 0 ] ; then
     purge_centreon_tmp_dir "silent"
     exit 1
 fi
-exit 0
 
 ## Update groups memberships
 echo_title "Update groups memberships"

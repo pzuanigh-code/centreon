@@ -436,7 +436,7 @@ copy_dir() {
         echo_failure "Not a directory '$dirname'" "$fail"
         return 1
     else
-        cp -rf $dir $dest
+        cp -rpf $dir $dest
         if [ $? -ne 0 ] ; then
             echo_failure "Copy of '$dir' to '$dest' failed" "$fail"
             return 1
