@@ -1,0 +1,15 @@
+# ########################################
+#
+# Cron Configuration for Centreon
+#
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# rewrite file with new cron line
+CRONTAB_EXEC_USER=""
+
+# Cron for databin and logs purge
+0 2 * * * @CENTREON_USER@ @PHP_BINARY@ @CENTREON_INSTALL_DIR@/cron/centstorage_purge.php >> @CENTREON_LOG_DIR@/centreon-purge.log 2>&1
+
+# Cron for database partitioning
+0 4 * * * @CENTREON_USER@ @PHP_BINARY@ @CENTREON_INSTALL_DIR@/cron/centreon-partitioning.php >> @CENTREON_LOG_DIR@/centreon-partitioning.log 2>&1
+

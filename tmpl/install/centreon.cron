@@ -1,0 +1,36 @@
+# ########################################
+#
+# Cron Configuration for Centreon
+#
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# rewrite file with new cron line
+CRONTAB_EXEC_USER=""
+
+############################
+# Cron for CentACL
+* * * * * @APACHE_USER@ @PHP_BINARY@ -q @CENTREON_INSTALL_DIR@/cron/centAcl.php >> @CENTREON_LOG_DIR@/centAcl.log 2>&1
+
+############################
+# Cron for Centreon-Downtime
+*/5 * * * * @APACHE_USER@ @PHP_BINARY@ -q @CENTREON_INSTALL_DIR@/cron/downtimeManager.php >> @CENTREON_LOG_DIR@/downtimeManager.log 2>&1
+
+############################
+# Cron to build state events
+0 3 * * * @CENTREON_USER@ @CENTREON_INSTALL_DIR@/cron/eventReportBuilder --config=@CENTREON_ETC_DIR@/conf.pm >> @CENTREON_LOG_DIR@/eventReportBuilder.log 2>&1
+
+##########################
+# Cron to build reporting
+0 6 * * * @CENTREON_USER@ @CENTREON_INSTALL_DIR@/cron/dashboardBuilder --config=@CENTREON_ETC_DIR@/conf.pm >> @CENTREON_LOG_DIR@/dashboardBuilder.log 2>&1
+
+##########################
+# Cron for knowledge base
+*/5 * * * * @CENTREON_USER@ @PHP_BINARY@ -q @CENTREON_INSTALL_DIR@/cron/centKnowledgeSynchronizer.php >> @CENTREON_LOG_DIR@/knowledgebase.log 2>&1
+
+##########################
+# Cron for statistics
+0 0 * * * @CENTREON_USER@ @PHP_BINARY@ -q @CENTREON_INSTALL_DIR@/cron/centreon-send-stats.php >> @CENTREON_LOG_DIR@/statistics.log 2>&1
+
+##########################
+# Cron for Centreon-Backup
+30 3 * * * root @CENTREON_INSTALL_DIR@/cron/centreon-backup.pl >> @CENTREON_LOG_DIR@/centreon-backup.log 2>&1

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+CENTREON_RUN_DIR="/run/centreon"
+PHP_ETC_DIR="/etc/php/7.2/fpm/conf.d/"
+PHPFPM_SERVICE="php7.2-fpm"
+PHPFPM_SERVICE_DIR="/lib/systemd/system/php7.2-fpm.service.d"

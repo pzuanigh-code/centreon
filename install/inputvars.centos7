@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+NAGIOS_PLUGINS_DIR="/usr/lib64/nagios/plugins"
+PHP_BINARY="/opt/rh/rh-php72/root/usr/bin/php"
+PHPFPM_SERVICE="rh-php72-php-fpm"
