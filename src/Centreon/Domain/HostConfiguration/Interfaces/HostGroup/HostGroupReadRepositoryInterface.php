@@ -25,6 +25,7 @@ namespace Centreon\Domain\HostConfiguration\Interfaces\HostGroup;
 use Centreon\Domain\Contact\Interfaces\ContactInterface;
 use Centreon\Domain\HostConfiguration\Model\HostCategory;
 use Centreon\Domain\HostConfiguration\Model\HostGroup;
+use Centreon\Domain\Repository\RepositoryException;
 
 /**
  * This interface gathers all the reading operations on the repository.
@@ -37,7 +38,8 @@ interface HostGroupReadRepositoryInterface
      * Find all host groups.
      *
      * @return HostGroup[]
-     * @throws \Throwable
+     * @throws RepositoryException
+     * @throws \Exception
      */
     public function findAll(): array;
 
@@ -46,7 +48,8 @@ interface HostGroupReadRepositoryInterface
      *
      * @param ContactInterface $contact Contact related to host groups
      * @return HostGroup[]
-     * @throws \Throwable
+     * @throws RepositoryException
+     * @throws \Exception
      */
     public function findAllByContact(ContactInterface $contact): array;
 
@@ -55,7 +58,8 @@ interface HostGroupReadRepositoryInterface
      *
      * @param int $hostGroupId Id of the host group to be found
      * @return HostGroup|null
-     * @throws \Throwable
+     * @throws RepositoryException
+     * @throws \Exception
      */
     public function findById(int $hostGroupId): ?HostGroup;
 
@@ -65,7 +69,8 @@ interface HostGroupReadRepositoryInterface
      * @param int $hostGroupId Id of the host group to be found
      * @param ContactInterface $contact Contact related to host categories
      * @return HostGroup|null
-     * @throws \Throwable
+     * @throws RepositoryException
+     * @throws \Exception
      */
     public function findByIdAndContact(int $hostGroupId, ContactInterface $contact): ?HostGroup;
 

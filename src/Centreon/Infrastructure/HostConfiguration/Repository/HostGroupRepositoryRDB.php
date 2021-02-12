@@ -22,14 +22,17 @@ declare(strict_types=1);
 
 namespace Centreon\Infrastructure\HostConfiguration\Repository;
 
+use Assert\AssertionFailedException;
 use Centreon\Domain\Contact\Interfaces\ContactInterface;
 use Centreon\Domain\HostConfiguration\Interfaces\HostGroup\HostGroupReadRepositoryInterface;
-use Centreon\Domain\HostConfiguration\Model\HostGroup;
+use Centreon\Domain\HostConfiguration\Model\HostGroup as HostGroupAlias;
+use Centreon\Domain\Repository\RepositoryException;
 use Centreon\Domain\RequestParameters\RequestParameters;
 use Centreon\Infrastructure\DatabaseConnection;
 use Centreon\Infrastructure\HostConfiguration\Repository\Model\HostGroupFactoryRdb;
 use Centreon\Infrastructure\Repository\AbstractRepositoryDRB;
 use Centreon\Infrastructure\RequestParameters\Interfaces\NormalizerInterface;
+use Centreon\Infrastructure\RequestParameters\RequestParametersTranslatorException;
 use Centreon\Infrastructure\RequestParameters\SqlRequestParametersTranslator;
 
 /**
@@ -44,6 +47,10 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
      */
     private $sqlRequestTranslator;
 
+    /**
+     * @param DatabaseConnection $db
+     * @param SqlRequestParametersTranslator $sqlRequestTranslator
+     */
     public function __construct(DatabaseConnection $db, SqlRequestParametersTranslator $sqlRequestTranslator)
     {
         $this->db = $db;
@@ -58,7 +65,17 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
      */
     public function findAll(): array
     {
-        return $this->findAllRequest(null);
+        try {
+            return $this->findAllRequest(null);
+        } catch (
+            RequestParametersTranslatorException
+            | \InvalidArgumentException
+            | \Assert\AssertionFailedException $ex
+        ) {
+            throw new RepositoryException($ex->getMessage(), 0, $ex);
+        } catch (\Exception $ex) {
+            throw $ex;
+        }
     }
 
     /**
@@ -66,15 +83,25 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
      */
     public function findAllByContact(ContactInterface $contact): array
     {
-        return $this->findAllRequest($contact->getId());
+        try {
+            return $this->findAllRequest($contact->getId());
+        } catch (
+            RequestParametersTranslatorException
+            | \InvalidArgumentException
+            | \Assert\AssertionFailedException $ex
+        ) {
+            throw new RepositoryException($ex->getMessage(), 0, $ex);
+        }
     }
 
     /**
      * Find all groups filtered by contact id.
      *
      * @param int|null $contactId Contact id related to host categories
-     * @return HostGroup[]
+     * @return HostGroupAlias[]
      * @throws \Assert\AssertionFailedException
+     * @throws \InvalidArgumentException
+     * @throws RequestParametersTranslatorException
      */
     private function findAllRequest(?int $contactId): array
     {
@@ -199,17 +226,25 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
     /**
      * @inheritDoc
      */
-    public function findById(int $hostGroupId): ?HostGroup
+    public function findById(int $hostGroupId): ?HostGroupAlias
     {
-        return $this->findByIdRequest($hostGroupId, null);
+        try {
+            return $this->findByIdRequest($hostGroupId, null);
+        } catch (AssertionFailedException | \InvalidArgumentException $ex) {
+            throw new RepositoryException($ex->getMessage(), 0, $ex);
+        }
     }
 
     /**
      * @inheritDoc
      */
-    public function findByIdAndContact(int $hostGroupId, ContactInterface $contact): ?HostGroup
+    public function findByIdAndContact(int $hostGroupId, ContactInterface $contact): ?HostGroupAlias
     {
-        return $this->findByIdRequest($hostGroupId, $contact->getId());
+        try {
+            return $this->findByIdRequest($hostGroupId, $contact->getId());
+        } catch (AssertionFailedException | \InvalidArgumentException $ex) {
+            throw new RepositoryException($ex->getMessage(), 0, $ex);
+        }
     }
 
     /**
@@ -217,10 +252,11 @@ class HostGroupRepositoryRDB extends AbstractRepositoryDRB implements HostGroupR
      *
      * @param int $hostGroupId Id of the host group to be found
      * @param int|null $contactId Contact id related to host groups
-     * @return HostGroup|null
+     * @return HostGroupAlias|null
      * @throws \Assert\AssertionFailedException
+     * @throws \InvalidArgumentException
      */
-    private function findByIdRequest(int $hostGroupId, ?int $contactId): ?HostGroup
+    private function findByIdRequest(int $hostGroupId, ?int $contactId): ?HostGroupAlias
     {
         if ($contactId === null) {
             $statement = $this->db->prepare(

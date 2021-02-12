@@ -73,8 +73,9 @@ class FindHostGroups
      * Execute the use case for which this class was designed.
      *
      * @return FindHostGroupsResponse
-     * @throws \Assert\AssertionFailedException
      * @throws HostGroupException
+     * @throws \Exception
+     * @throws \Assert\AssertionFailedException
      */
     public function execute(): FindHostGroupsResponse
     {

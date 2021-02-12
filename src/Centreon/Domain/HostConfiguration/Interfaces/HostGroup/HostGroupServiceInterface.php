@@ -24,6 +24,7 @@ namespace Centreon\Domain\HostConfiguration\Interfaces\HostGroup;
 
 use Centreon\Domain\HostConfiguration\Exception\HostGroupException;
 use Centreon\Domain\HostConfiguration\Model\HostGroup;
+use Centreon\Domain\Repository\RepositoryException;
 
 /**
  * @package Centreon\Domain\HostConfiguration\Interfaces\HostGroup
@@ -36,6 +37,7 @@ interface HostGroupServiceInterface
      * @param int $groupId Id of the host group to be found
      * @return HostGroup|null
      * @throws HostGroupException
+     * @throws RepositoryException
      */
     public function findWithAcl(int $groupId): ?HostGroup;
 
@@ -45,6 +47,7 @@ interface HostGroupServiceInterface
      * @param int $groupId Id of the host group to be found
      * @return HostGroup|null
      * @throws HostGroupException
+     * @throws RepositoryException
      */
     public function findWithoutAcl(int $groupId): ?HostGroup;
 
@@ -53,6 +56,7 @@ interface HostGroupServiceInterface
      *
      * @return HostGroup[]
      * @throws HostGroupException
+     * @throws RepositoryException
      */
     public function findAllWithAcl(): array;
 
@@ -61,6 +65,7 @@ interface HostGroupServiceInterface
      *
      * @return HostGroup[]
      * @throws HostGroupException
+     * @throws RepositoryException
      */
     public function findAllWithoutAcl(): array;
 }

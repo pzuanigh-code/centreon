@@ -27,6 +27,7 @@ use Centreon\Domain\HostConfiguration\Exception\HostGroupException;
 use Centreon\Domain\HostConfiguration\Interfaces\HostGroup\HostGroupReadRepositoryInterface;
 use Centreon\Domain\HostConfiguration\Interfaces\HostGroup\HostGroupServiceInterface;
 use Centreon\Domain\HostConfiguration\Model\HostGroup;
+use Centreon\Domain\Repository\RepositoryException;
 
 /**
  * This class is designed to manage the host groups.
@@ -64,7 +65,9 @@ class HostGroupService implements HostGroupServiceInterface
     {
         try {
             return $this->readRepository->findAllByContact($this->contact);
-        } catch (\Throwable $ex) {
+        } catch (RepositoryException $ex) {
+            throw $ex;
+        } catch (\Exception $ex) {
             throw HostGroupException::findHostGroupsException($ex);
         }
     }
@@ -76,7 +79,9 @@ class HostGroupService implements HostGroupServiceInterface
     {
         try {
             return $this->readRepository->findAll();
-        } catch (\Throwable $ex) {
+        } catch (RepositoryException $ex) {
+            throw $ex;
+        } catch (\Exception $ex) {
             throw HostGroupException::findHostGroupsException($ex);
         }
     }
@@ -88,7 +93,9 @@ class HostGroupService implements HostGroupServiceInterface
     {
         try {
             return $this->readRepository->findByIdAndContact($groupId, $this->contact);
-        } catch (\Throwable $ex) {
+        } catch (RepositoryException $ex) {
+            throw $ex;
+        } catch (\Exception $ex) {
             throw HostGroupException::findHostGroupException($ex, ['id' => $groupId]);
         }
     }
@@ -100,7 +107,9 @@ class HostGroupService implements HostGroupServiceInterface
     {
         try {
             return $this->readRepository->findById($groupId);
-        } catch (\Throwable $ex) {
+        } catch (RepositoryException $ex) {
+            throw $ex;
+        } catch (\Exception $ex) {
             throw HostGroupException::findHostGroupException($ex, ['id' => $groupId]);
         }
     }
