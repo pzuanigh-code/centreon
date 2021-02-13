@@ -42,16 +42,15 @@
 usage() {
 	local program=$0
 	echo -e "Usage: $program -f <file>"
-	echo -e "  -i\tinstall centreon"
-	echo -e "  -f\tfile with all variable"
-	echo -e "  -u\tupgrade centreon with specify your directory with instCent* files"
-	echo -e "  -v\tverbose mode"
+	echo -e "  -i\tinstall Centreon with interactive interface"
+	echo -e "  -s\tinstall Centreon silently"
+	echo -e "  -u\tupgrade Centreon specifying your directory with instCent* files"
+	# echo -e "  -v\tverbose mode"
 	exit 1
 }
 
-# define where is a centreon source 
+# Define where are Centreon sources
 BASE_DIR=$(dirname $0)
-## set directory
 BASE_DIR=$( cd $BASE_DIR; pwd )
 export BASE_DIR
 if [ -z "${BASE_DIR#/}" ] ; then
@@ -61,8 +60,9 @@ fi
 INSTALL_DIR="$BASE_DIR/install"
 export INSTALL_DIR
 
-## load all functions used in this script
-. $INSTALL_DIR/inputvars.default
+## Load default input variables
+. $INSTALL_DIR/inputvars.default.env
+## Load all functions used in this script
 . $INSTALL_DIR/functions
 
 # Checking installation script requirements
@@ -89,17 +89,19 @@ else
 fi
 
 ## Load specific variables
-find_os DISTRIB
+if [ -z "$DISTRIB" ] ; then
+    find_os DISTRIB
+fi
 echo_info "Found distribution" "$DISTRIB"
 
-if [ -f $INSTALL_DIR/inputvars.$DISTRIB ]; then
-    echo_info "Loading distribution specific input variables" "$INSTALL_DIR/inputvars.$DISTRIB"
-    . $INSTALL_DIR/inputvars.$DISTRIB
+if [ -f $INSTALL_DIR/inputvars.$DISTRIB.env ]; then
+    echo_info "Loading distribution specific input variables" "$INSTALL_DIR/inputvars.$DISTRIB.env"
+    . $INSTALL_DIR/inputvars.$DISTRIB.env
 fi
 
-if [ -f $INSTALL_DIR/inputvars ]; then
-    echo_info "Loading user specific input variables" "$INSTALL_DIR/inputvars"
-    . $INSTALL_DIR/inputvars
+if [ -f $INSTALL_DIR/../inputvars.env ]; then
+    echo_info "Loading user specific input variables" "$INSTALL_DIR/../inputvars.env"
+    . $INSTALL_DIR/../inputvars.env
 fi
 
 ## Use TRAPs to call clean_and_exit when user press
@@ -121,7 +123,6 @@ fi
 _tmp_install_opts="0"
 silent_install="0"
 upgrade="0"
-user_install_vars=""
 inst_upgrade_dir=""
 use_upgrade_files="0"
 
@@ -133,8 +134,7 @@ do
 		i )	silent_install="0"
 			_tmp_install_opts="1"
 			;;
-		f )	silent_install="1"
-			user_install_vars="${OPTARG}"
+		s )	silent_install="1"
 			_tmp_install_opts="1"
 			;;
 		u )	silent_install="1"
@@ -168,7 +168,7 @@ __EOL__
 # Init GREP,CAT,SED,CHMOD,CHOWN variables
 define_specific_binary_vars
 
-echo_info "Welcome to Centreon installation script!"
+echo_info "\nWelcome to Centreon installation script!"
 yes_no_default "Should we start?" "$yes"
 if [ "$?" -ne 0 ] ; then
     echo_info "Exiting"
@@ -231,15 +231,13 @@ if [ "$?" -eq 1 ] ; then
     fi
 fi
 
-requirements_failed=""
-export requirements_failed
+ERROR_MESSAGE=""
+export ERROR_MESSAGE
 
 # Checking requirements
-echo_title "Checking Centreon installation requirements"
+echo_title "Centreon installation requirements"
 test_dir "$BASE_DIR/vendor" "Composer dependencies"
-if [ "$?" -ne 0 ] ; then requirements_failed="0" ; fi
 test_dir "$BASE_DIR/www/static" "Frontend application"
-if [ "$?" -ne 0 ] ; then requirements_failed="0" ; fi
 test_file_from_var "PERL_BINARY" "Perl binary"
 test_file_from_var "RRDTOOL_BINARY" "RRDTool binary"
 test_file_from_var "MAIL_BINARY" "Mail binary"
@@ -247,7 +245,6 @@ test_dir_from_var "CROND_ETC_DIR" "Cron directory"
 test_dir_from_var "LOGROTATED_ETC_DIR" "Logrotate directory"
 test_dir_from_var "SUDOERSD_ETC_DIR" "Sudoers directory"
 test_dir_from_var "SNMP_ETC_DIR" "SNMP configuration directory"
-test_dir_from_var "NAGIOS_PLUGINS_DIR" "Nagios Plugins directory"
 
 ## Apache information
 check_apache_user
@@ -255,7 +252,6 @@ check_apache_group
 check_apache_directory
 test_user_from_var "APACHE_USER" "Apache user"
 test_group_from_var "APACHE_GROUP" "Apache group"
-# test_file_from_var "APACHE_CONF" "Apache configuration"
 test_dir_from_var "APACHE_DIR" "Apache directory"
 test_dir_from_var "APACHE_CONF_DIR" "Apache configuration directory"
 
@@ -270,16 +266,15 @@ if [ "$?" -ne 0 ] ; then
 fi
 
 ## PHP information
-get_timezone
 check_php_fpm_directory
+get_timezone
 test_value_from_var "PHP_TIMEZONE" "PHP timezone"
 test_dir_from_var "PHPFPM_LOG_DIR" "PHP FPM log directory"
 test_dir_from_var "PHPFPM_CONF_DIR" "PHP FPM configuration directory"
 test_dir_from_var "PHPFPM_SERVICE_DIR" "PHP FPM service directory"
 test_dir_from_var "PHP_ETC_DIR" "PHP configuration directory"
 test_file_from_var "PHP_BINARY" "PHP binary"
-check_php_version
-if [ "$?" -ne 0 ] ; then requirements_failed="${requirements_failed}PHP_MIN_VERSION " ; fi
+test_php_version
 
 ## Perl information
 check_perl_lib_directory
@@ -312,37 +307,43 @@ test_dir_from_var "GORGONE_VARLIB_DIR" "Gorgone variable library directory"
 test_dir_from_var "CENTREON_PLUGINS_DIR" "Centreon Plugins directory"
 test_dir_from_var "NAGIOS_PLUGINS_DIR" "Nagios Plugins directory"
 
+if [ ! -z "$ERROR_MESSAGE" ] ; then
+    echo_failure "Installation requirements" "$fail"
+    echo_info "\nErrors:"
+    echo_info "$ERROR_MESSAGE"
+    exit 1
+fi
 echo_success "Installation requirements" "$ok"
 
 ## Centreon information summary
 echo_title "Centreon information"
-echo_info "Centreon installation directory" "$CENTREON_INSTALL_DIR"
-echo_info "Centreon configuration directory" "$CENTREON_ETC_DIR"
-echo_info "Centreon log directory" "$CENTREON_LOG_DIR"
-echo_info "Centreon variable library directory" "$CENTREON_VARLIB_DIR"
-echo_info "Centreon Centcore directory" "$CENTREON_CENTCORE_DIR"
-echo_info "Centreon RRD status directory" "$CENTREON_RRD_STATUS_DIR"
-echo_info "Centreon RRD metrics directory" "$CENTREON_RRD_METRICS_DIR"
-echo_info "Centreon Plugins temporary directory" "$CENTREON_PLUGINS_TMP_DIR"
-echo_info "Centreon cache directory" "$CENTREON_CACHE_DIR"
-echo_info "Centreon run directory" "$CENTREON_RUN_DIR"
-echo_info "Centreon user" "$CENTREON_USER"
-echo_info "Centreon group" "$CENTREON_GROUP"
+test_var_and_show "CENTREON_INSTALL_DIR" "Centreon installation directory"
+test_var_and_show "CENTREON_ETC_DIR" "Centreon configuration directory"
+test_var_and_show "CENTREON_LOG_DIR" "Centreon log directory"
+test_var_and_show "CENTREON_VARLIB_DIR" "Centreon variable library directory"
+test_var_and_show "CENTREON_CENTCORE_DIR" "Centreon Centcore directory"
+test_var_and_show "CENTREON_RRD_STATUS_DIR" "Centreon RRD status directory"
+test_var_and_show "CENTREON_RRD_METRICS_DIR" "Centreon RRD metrics directory"
+test_var_and_show "CENTREON_PLUGINS_TMP_DIR" "Centreon Plugins temporary directory"
+test_var_and_show "CENTREON_CACHE_DIR" "Centreon cache directory"
+test_var_and_show "CENTREON_RUN_DIR" "Centreon run directory"
+test_var_and_show "CENTREON_USER" "Centreon user"
+test_var_and_show "CENTREON_GROUP" "Centreon group"
+test_var_and_show "CENTREONTRAPD_SPOOL_DIR" "Centreontrapd spool directory"
 
-if [ ! -z "$requirements_failed" ] ; then
-    echo_info "\n\tPlease define the following variables:"
-    echo_info "\n\t$requirements_failed"
-    echo_info "\n"
-    purge_centreon_tmp_dir "silent"
+if [ ! -z "$ERROR_MESSAGE" ] ; then
+    echo_info "\nErrors:"
+    echo_info "$ERROR_MESSAGE"
     exit 1
 fi
 
-# Start installation
 yes_no_default "Everything looks good, proceed to installation?"
 if [ "$?" -ne 0 ] ; then
     purge_centreon_tmp_dir "silent"
     exit 1
 fi
+
+# Start installation
 
 ## Ask for HTTP/HTTPS
 if [ -z $USE_HTTPS ] ; then
@@ -363,8 +364,6 @@ fi
 
 ## Create a random APP_SECRET key
 HEX_KEY=($(dd if=/dev/urandom bs=32 count=1 status=none | $PHP_BINARY -r "echo bin2hex(fread(STDIN, 32));"));
-echo -e "\n"
-echo_info "Generated random key: $HEX_KEY"
 
 ## Build files
 echo_title "Build files"
@@ -379,193 +378,191 @@ fi
 echo_info "Replacing macros"
 replace_macro
 if [ "$?" -ne 0 ] ; then
-    echo_failure "Error replacing macros" "$fail"
+    echo_failure "Error when replacing macros" "$fail"
     purge_centreon_tmp_dir "silent"
     exit 1
 fi
 
 echo_info "Building installation tree"
 BUILD_DIR="$TMP_DIR/build"
-create_dir "$BUILD_DIR"
+{
+    create_dir "$BUILD_DIR" &&
 
-# Create user and group
-create_group "$CENTREON_GROUP"
-create_user "$CENTREON_USER" "$CENTREON_GROUP" "$CENTREON_HOME"
+    # Create user and group
+    create_group "$CENTREON_GROUP" &&
+    create_user "$CENTREON_USER" "$CENTREON_GROUP" "$CENTREON_HOME" &&
 
-# Centreon configuration
-create_dir "$BUILD_DIR/$CENTREON_ETC_DIR"
-create_dir "$BUILD_DIR/$CENTREON_ETC_DIR/config.d"
-copy_file "$TMP_DIR/source/www/install/var/config.yaml" "$BUILD_DIR/$CENTREON_ETC_DIR/config.yaml"
-copy_file "$TMP_DIR/source/install/src/instCentWeb.conf" "$BUILD_DIR/$CENTREON_ETC_DIR/instCentWeb.conf"
-set_ownership "$BUILD_DIR/$CENTREON_ETC_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_ETC_DIR" "775"
-set_permissions "$BUILD_DIR/$CENTREON_ETC_DIR/*" "644"
+    # Centreon configuration
+    create_dir "$BUILD_DIR/$CENTREON_ETC_DIR" &&
+    create_dir "$BUILD_DIR/$CENTREON_ETC_DIR/config.d" &&
+    copy_file "$TMP_DIR/source/www/install/var/config.yaml" "$BUILD_DIR/$CENTREON_ETC_DIR/config.yaml" &&
+    copy_file "$TMP_DIR/source/install/src/instCentWeb.conf" "$BUILD_DIR/$CENTREON_ETC_DIR/instCentWeb.conf" &&
+    set_ownership "$BUILD_DIR/$CENTREON_ETC_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_ETC_DIR" "775" &&
+    set_permissions "$BUILD_DIR/$CENTREON_ETC_DIR/*" "644" &&
 
-### Log directory
-create_dir "$BUILD_DIR/$CENTREON_LOG_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_LOG_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_LOG_DIR" "775"
+    ### Log directory
+    create_dir "$BUILD_DIR/$CENTREON_LOG_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_LOG_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_LOG_DIR" "775" &&
 
-### Variable libraries directory
-create_dir "$BUILD_DIR/$CENTREON_VARLIB_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_VARLIB_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_VARLIB_DIR" "775"
+    ### Variable libraries directory
+    create_dir "$BUILD_DIR/$CENTREON_VARLIB_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_VARLIB_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_VARLIB_DIR" "775" &&
 
-create_dir "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs"
-set_ownership "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs" "775"
+    create_dir "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs" &&
+    set_ownership "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_VARLIB_DIR/installs" "775" &&
 
-create_dir "$BUILD_DIR/$CENTREON_CENTCORE_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_CENTCORE_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_CENTCORE_DIR" "775"
+    create_dir "$BUILD_DIR/$CENTREON_CENTCORE_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_CENTCORE_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_CENTCORE_DIR" "775" &&
 
-### RRD directories
-create_dir "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR" "775"
+    ### RRD directories
+    create_dir "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_RRD_STATUS_DIR" "775" &&
 
-create_dir "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR" "775"
+    create_dir "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_RRD_METRICS_DIR" "775" &&
 
-### Centreon Plugins temporary directory
-create_dir "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR" "775"
+    ### Centreon Plugins temporary directory
+    create_dir "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_PLUGINS_TMP_DIR" "775" &&
 
-### Run directory
-create_dir "$BUILD_DIR/$CENTREON_RUN_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_RUN_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_RUN_DIR" "750"
+    ### Run directory
+    create_dir "$BUILD_DIR/$CENTREON_RUN_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_RUN_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_RUN_DIR" "750" &&
 
-### Cache directories
-create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/backup"
-create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/engine"
-create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/broker"
-create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/export"
-set_ownership "$BUILD_DIR/$CENTREON_CACHE_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_CACHE_DIR" "775"
-create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony"
-set_ownership "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony" "755"
+    ### Cache directories
+    create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/backup" &&
+    create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/engine" &&
+    create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/broker" &&
+    create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/config/export" &&
+    set_ownership "$BUILD_DIR/$CENTREON_CACHE_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_CACHE_DIR" "775" &&
+    create_dir "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony" &&
+    set_ownership "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_CACHE_DIR/symfony" "755" &&
 
-### Install directory
-create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR" "775"
+    ### Install directory
+    create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR" "775" &&
 
-### Web directory
-copy_dir "$TMP_DIR/source/www" "$BUILD_DIR/$CENTREON_INSTALL_DIR/www"
-copy_file "$TMP_DIR/source/install/install.conf.php" \
-    "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/installinstall.conf.php"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "775"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/*" "775"
+    ### Web directory
+    copy_dir "$TMP_DIR/source/www" "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" &&
+    copy_file "$TMP_DIR/source/install/src/install.conf.php" \
+        "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/install/install.conf.php" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www" "775" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/www/*" "775" &&
 
-### Sources
-copy_dir "$TMP_DIR/source/src" "$BUILD_DIR/$CENTREON_INSTALL_DIR/src"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/src" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/src" "775"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/src/*" "775"
+    ### Sources
+    copy_dir "$TMP_DIR/source/src" "$BUILD_DIR/$CENTREON_INSTALL_DIR/src" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/src" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/src" "775" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/src/*" "775" &&
 
-### API files
-copy_dir "$TMP_DIR/source/api" "$BUILD_DIR/$CENTREON_INSTALL_DIR/api"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/api" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/api" "775"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/api/*" "775"
+    ### API files
+    copy_dir "$TMP_DIR/source/api" "$BUILD_DIR/$CENTREON_INSTALL_DIR/api" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/api" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/api" "775" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/api/*" "775" &&
 
-### Symfony config directories
-copy_dir "$TMP_DIR/source/vendor" "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor" "755"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor/*" "644"
+    ### Symfony config directories
+    copy_dir "$TMP_DIR/source/vendor" "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor" "755" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/vendor/*" "644" &&
 
-copy_dir "$TMP_DIR/source/config" "$BUILD_DIR/$CENTREON_INSTALL_DIR/config"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/config" "755"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/*" "644"
+    copy_dir "$TMP_DIR/source/config" "$BUILD_DIR/$CENTREON_INSTALL_DIR/config" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/config" "755" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/*" "644" &&
 
-copy_file "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/centreon.config.php.template" \
-    "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/centreon.config.php"
+    copy_file "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/centreon.config.php.template" \
+        "$BUILD_DIR/$CENTREON_INSTALL_DIR/config/centreon.config.php" &&
 
-### Smarty directories
-copy_dir "$TMP_DIR/source/GPL_LIB" "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB" "775"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB/*" "644"
+    ### Smarty directories
+    copy_dir "$TMP_DIR/source/GPL_LIB" "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB" "775" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/GPL_LIB/*" "644" &&
 
-### Centreon binaries
-copy_dir "$TMP_DIR/source/bin" "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin" "755"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin/*" "755"
+    ### Centreon binaries
+    copy_dir "$TMP_DIR/source/bin" "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin" "755" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bin/*" "755" &&
 
-### Centreon CLAPI
-create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib"
-copy_dir "$TMP_DIR/source/lib/Centreon" "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib/Centreon"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib" "755"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib/Centreon/*" "644"
+    ### Centreon CLAPI
+    create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib" &&
+    copy_dir "$TMP_DIR/source/lib/Centreon" "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib/Centreon" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib" "755" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/lib/Centreon/*" "644" &&
 
-### Cron binary
-create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "775"
+    ### Cron binary
+    create_dir "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "775" &&
 
-copy_file "$TMP_DIR/source/cron/*" "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "$CENTREON_USER" "$CENTREON_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron/*" "755"
+    copy_file "$TMP_DIR/source/cron/*" "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron" "$CENTREON_USER" "$CENTREON_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/cron/*" "755" &&
 
-### Bases
-copy_file "$TMP_DIR/source/bootstrap.php" "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/bootstrap.php" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bootstrap.php" "644"
+    ### Bases
+    copy_file "$TMP_DIR/source/bootstrap.php" "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/bootstrap.php" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/bootstrap.php" "644" &&
 
-copy_file "$TMP_DIR/source/container.php" "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/container.php" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/container.php" "644"
+    copy_file "$TMP_DIR/source/container.php" "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/container.php" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/container.php" "644" &&
 
-copy_file "$TMP_DIR/source/composer.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/composer.json" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/composer.json" "644"
+    copy_file "$TMP_DIR/source/composer.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/composer.json" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/composer.json" "644" &&
 
-copy_file "$TMP_DIR/source/package.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/package.json" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/package.json" "644"
+    copy_file "$TMP_DIR/source/package.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/package.json" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/package.json" "644" &&
 
-copy_file "$TMP_DIR/source/package-lock.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR"
-set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/package-lock.json" "$APACHE_USER" "$APACHE_GROUP"
-set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/package-lock.json" "644"
+    copy_file "$TMP_DIR/source/package-lock.json" "$BUILD_DIR/$CENTREON_INSTALL_DIR" &&
+    set_ownership "$BUILD_DIR/$CENTREON_INSTALL_DIR/package-lock.json" "$APACHE_USER" "$APACHE_GROUP" &&
+    set_permissions "$BUILD_DIR/$CENTREON_INSTALL_DIR/package-lock.json" "644" &&
 
-### Cron stuff
-create_dir "$BUILD_DIR/$CROND_ETC_DIR"
-copy_file "$TMP_DIR/source/tmpl/install/centreon.cron" "$BUILD_DIR/$CROND_ETC_DIR/centreon"
-set_permissions "$BUILD_DIR/$CROND_ETC_DIR/centreon" "644"
-copy_file "$TMP_DIR/source/tmpl/install/centstorage.cron" "$BUILD_DIR/$CROND_ETC_DIR/centstorage"
-set_permissions "$BUILD_DIR/$CROND_ETC_DIR/centstorage" "644"
+    ### Perl libraries
+    create_dir "$BUILD_DIR/$PERL_LIB_DIR/lib/perl" &&
+    copy_dir "$TMP_DIR/source/lib/perl/centreon" "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon" &&
+    set_permissions "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon" "755" &&
+    set_permissions "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon/*" "644" &&
 
-### Install Centreon Perl lib
-create_dir "$BUILD_DIR/$PERL_LIB_DIR/lib/perl"
-copy_dir "$TMP_DIR/source/lib/perl/centreon" "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon"
-set_permissions "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon" "755"
-set_permissions "$BUILD_DIR/$PERL_LIB_DIR/lib/perl/centreon/*" "644"
+    ### Cron configurations
+    create_dir "$BUILD_DIR/$CROND_ETC_DIR" &&
+    copy_file "$TMP_DIR/source/tmpl/install/centreon.cron" "$BUILD_DIR/$CROND_ETC_DIR/centreon" &&
+    set_permissions "$BUILD_DIR/$CROND_ETC_DIR/centreon" "644" &&
+    copy_file "$TMP_DIR/source/tmpl/install/centstorage.cron" "$BUILD_DIR/$CROND_ETC_DIR/centstorage" &&
+    set_permissions "$BUILD_DIR/$CROND_ETC_DIR/centstorage" "644" &&
 
-### Gorgone configuration file
-create_dir "$BUILD_DIR/$GORGONE_ETC_DIR/config.d"
-copy_file "$TMP_DIR/source/www/install/var/gorgone/gorgoneRootConfigTemplate.yaml" \
-    "$BUILD_DIR/$GORGONE_ETC_DIR/config.d/30-centreon.yaml"
-set_ownership "$BUILD_DIR/$GORGONE_ETC_DIR" "$GORGONE_USER" "$GORGONE_GROUP"
-set_permissions "$BUILD_DIR/$GORGONE_ETC_DIR" "755"
-set_permissions "$BUILD_DIR/$GORGONE_ETC_DIR/config.d/30-centreon.yaml" "644"
+    ### Sudoers configuration
+    create_dir "$BUILD_DIR/$SUDOERSD_ETC_DIR" &&
+    copy_file "$TMP_DIR/source/tmpl/install/sudoersCentreonEngine" "$BUILD_DIR/$SUDOERSD_ETC_DIR/centreon"
+} || {
+    echo_failure "Error building files" "$fail"
+    purge_centreon_tmp_dir "silent"
+    exit 1
+}
 
-### Sudoers configuration
-create_dir "$BUILD_DIR/$SUDOERSD_ETC_DIR"
-copy_file "$TMP_DIR/source/tmpl/install/sudoersCentreonEngine" "$BUILD_DIR/$SUDOERSD_ETC_DIR/centreon"
-
-## Copy files to final directory
-echo_title "Copy files to final directory"
+## Install files
+echo_title "Install files"
 echo_info "Copying files from '$TMP_DIR' to final directory"
 copy_dir "$BUILD_DIR/*" "/"
 if [ "$?" -ne 0 ] ; then
-    echo_failure "Error copying files" "$fail"
+    echo_failure "Error when copying files" "$fail"
     purge_centreon_tmp_dir "silent"
     exit 1
 fi
@@ -596,15 +593,29 @@ fi
 echo_title "Configure services"
 
 ### Centreon
-enable_centreon="0"
-copy_file_no_replace "$TMP_DIR/source/install/src/centreon.systemd" "$SYSTEMD_ETC_DIR/centreon.service"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "Centreon service configuration" "$ok"
-    enable_centreon="1"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Centreon service configuration" "$SYSTEMD_ETC_DIR/centreon.service.new"
-fi
+copy_file "$TMP_DIR/source/tmpl/install/redhat/centreon.systemd" "$SYSTEMD_ETC_DIR/centreon.service"
+enable_service "centreon"
+
+### Centreontrapd
+copy_file "$TMP_DIR/source/tmpl/install/redhat/centreontrapd.systemd" "$SYSTEMD_ETC_DIR/centreontrapd.service"
+copy_file "$TMP_DIR/source/snmptrapd/snmptrapd.conf" "$SNMP_ETC_DIR/snmptrapd.conf"
+copy_file "$TMP_DIR/source/install/src/centreontrapd.pm" "$CENTREON_ETC_DIR"
+set_ownership "$CENTREON_ETC_DIR/centreontrapd.pm" "$CENTREON_USER" "$CENTREON_GROUP"
+set_permissions "$CENTREON_ETC_DIR/centreontrapd.pm" "644"
+create_dir "$SNMP_ETC_DIR/centreon_traps"
+set_ownership "$SNMP_ETC_DIR/centreon_traps" "$CENTREON_USER" "$CENTREON_GROUP"
+set_permissions "$SNMP_ETC_DIR/centreon_traps" "775"
+create_dir "$CENTREONTRAPD_SPOOL_DIR"
+set_ownership "$CENTREONTRAPD_SPOOL_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
+set_permissions "$CENTREONTRAPD_SPOOL_DIR" "755"
+# config_service_centreontrapd
+enable_service "centreontrapd"
+
+### Gorgone
+copy_file_no_replace "$TMP_DIR/source/install/src/gorgoneRootConfigTemplate.yaml" \
+    "$GORGONE_ETC_DIR/config.d/30-centreon.yaml"
+set_ownership "$GORGONE_ETC_DIR" "$GORGONE_USER" "$GORGONE_GROUP"
+set_permissions "$GORGONE_ETC_DIR/config.d/30-centreon.yaml" "644"
 
 ### Symfony
 copy_file_no_replace "$TMP_DIR/source/.env" "$CENTREON_INSTALL_DIR"
@@ -656,6 +667,10 @@ fi
 
 ### PHP FPM
 restart_php_fpm="0"
+create_dir "$PHPFPM_VARLIB_DIR/session"
+create_dir "$PHPFPM_VARLIB_DIR/wsdlcache"
+set_ownership "root" "$APACHE_USER"
+set_permissions "$PHPFPM_VARLIB_DIR/session" "770"
 copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm.conf" "$PHPFPM_CONF_DIR/centreon.conf"
 retval=$?
 if [ "$retval" == 0 ] ; then
@@ -701,14 +716,10 @@ if [ $install_mariadb_conf -eq 1 ] ; then
         echo_passed "MariaDB service configuration" "$MARIADB_SERVICE_DIR/centreon.conf.new"
     fi
 fi
-if [ "$enable_centreon" -eq 1 ] || [ "$reload_apache" -eq 1 ] ||
-    [ "$restart_php_fpm" -eq 1 ] || [ "$restart_mariadb" -eq 1 ] ; then
+if [ "$reload_apache" -eq 1 ] || [ "$restart_php_fpm" -eq 1 ] || [ "$restart_mariadb" -eq 1 ] ; then
     reload_daemon
 fi
 
-if [ "$enable_centreon" -eq 1 ] ; then
-    enable_service_centreon
-fi
 if [ "$reload_apache" -eq 1 ] ; then
     enable_conf_apache
     reload_service_apache

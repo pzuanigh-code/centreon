@@ -47,7 +47,7 @@ CHOWN=""
 
 ## COLOR FUNCTIONS
 
-RES_COL="65"
+RES_COL="60"
 MOVE_TO_COL="\\033[${RES_COL}G"
 SETCOLOR_INFO="\\033[1;38m"
 SETCOLOR_SUCCESS="\\033[1;32m"
@@ -58,7 +58,7 @@ SETCOLOR_NORMAL="\\033[0;39m"
 echo_title() {
     echo -e "\n"
     echo -e "$1"
-    echo -e "--------------------------------------------------------------------------------"
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 }
 
 #----
@@ -152,6 +152,16 @@ log() {
 
 # FUNCTIONS
 #----
+
+add_error_message() {
+    local append=""
+    local message="$1"
+    if [ ! -z "$ERROR_MESSAGE" ] ; then
+        append="\n"
+    fi
+    ERROR_MESSAGE="${ERROR_MESSAGE}$append  $message"
+}
+
 ## find in $PATH if binary exist
 ## @param	file to test
 ## @return 0	found
@@ -270,6 +280,19 @@ answer() {
     return 0
 }
 
+test_var_and_show() {
+    local var="$1"
+    local message="$2"
+    local value=$(eval echo \$$var)
+    if [ -z "$value" ] ; then
+        add_error_message "Missing value for variable '$var' ($message)"
+        return 1
+    fi
+    echo_info "$message" "$value"
+    return 0
+}
+
+
 test_value_from_var() {
     local var="$1"
     local message="$2"
@@ -286,11 +309,11 @@ test_file() {
     local file="$1"
     local message="$2"
     if [ -z "$file" ] ; then
-        echo_failure "$message" "$notdefined"
+        add_error_message "Missing value for test_file function"
         return 1
     fi
     if [ ! -e $file ] ; then
-        echo_failure "$message '$file'" "$notfound"
+        add_error_message "Cannot find file '$file' ($message)"
         return 1
     fi
     return 0
@@ -301,13 +324,11 @@ test_file_from_var() {
     local message="$2"
     local file=$(eval echo \$$var)
     if [ -z "$file" ] ; then
-        echo_failure "$message" "$notdefined"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
     if [ ! -e $file ] ; then
-        echo_failure "$message '$file'" "$notfound"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Cannot find file '$file' from variable '$var' ($message)"
         return 1
     fi
     return 0
@@ -317,11 +338,11 @@ test_dir() {
     local dir="$1"
     local message="$2"
     if [ -z "$dir" ] ; then
-        echo_failure "$message" "$notdefined"
+        add_error_message "Missing value for test_dir function"
         return 1
     fi
     if [ ! -d "$dir" ] ; then
-        echo_failure "$message '$dir'" "$notfound"
+        add_error_message "Cannot find directory '$dir' ($message)"
         return 1
     fi
     return 0
@@ -332,13 +353,11 @@ test_dir_from_var() {
     local message="$2"
     local dir=$(eval echo \$$var)
     if [ -z "$dir" ] ; then
-        echo_failure "$message" "$notdefined"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
     if [ ! -d "$dir" ] ; then
-        echo_failure "$message '$dir'" "$notfound"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Cannot find directory '$dir' from variable '$var' ($message)"
         return 1
     fi
     return 0
@@ -349,14 +368,12 @@ test_user_from_var() {
     local message="$2"
     local user=$(eval echo \$$var)
     if [ -z "$user" ] ; then
-        echo_failure "$message" "$notdefined"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
-    grep "^$user:" /etc/passwd &>/dev/null
+    ${GREP} "^$user:" /etc/passwd &>/dev/null
     if [ $? -ne 0 ] ; then
-        echo_failure "$message '$user'" "$notfound"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Cannot find user '$user' from variable '$var' ($message)"
         return 1
     fi
     return 0
@@ -367,14 +384,12 @@ test_group_from_var() {
     local message="$2"
     local group=$(eval echo \$$var)
     if [ -z "$group" ] ; then
-        echo_failure "$message" "$notdefined"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
-    grep "^$group:" /etc/group &>/dev/null
+    ${GREP} "^$group:" /etc/group &>/dev/null
     if [ $? -ne 0 ] ; then
-        echo_failure "$message '$group'" "$notfound"
-        requirements_failed="${requirements_failed} $var "
+        add_error_message "Cannot find group '$group' from variable '$var' ($message)"
         return 1
     fi
     return 0
@@ -454,8 +469,16 @@ set_ownership() {
     fi
     if [ -f "$dir_file" ] ; then
         ${CHOWN} $user:$group "$dir_file"
+        if [ $? -ne 0 ] ; then
+            echo_failure "Set ownership '$user:$group' on file '$dir_file'" "$fail"
+            return 1
+        fi
     elif [ -d "$dir_file" ] ; then
         ${CHOWN} -R $user:$group "$dir_file"
+        if [ $? -ne 0 ] ; then
+            echo_failure "Set ownership '$user:$group' on directory '$dir_file'" "$fail"
+            return 1
+        fi
     fi
     return 0
 }
@@ -468,10 +491,22 @@ set_permissions() {
     fi
     if [ -f "$dir_file" ] ; then
         find $dir_file -type f -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        if [ $? -ne 0 ] ; then
+            echo_failure "Set permissions '$mode' on file '$dir_file'" "$fail"
+            return 1
+        fi
     elif [ -d "$dir_file" ] ; then
         find $dir_file -type d -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        if [ $? -ne 0 ] ; then
+            echo_failure "Set permissions '$mode' on directory '$dir_file'" "$fail"
+            return 1
+        fi
     elif [[ "$dir_file" =~ \*$ ]]  ; then
         find $dir_file -type f -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        if [ $? -ne 0 ] ; then
+            echo_failure "Set permissions '$mode' on files in '$dir_file'" "$fail"
+            return 1
+        fi
     else
         echo_failure "Not a file or a directory '$dir_file'" "$fail"
         return 1
@@ -487,11 +522,9 @@ create_user() {
     test_user $username
     if [ $? -ne 0 ]; then
         useradd -r -s "/bin/sh" -d "$home" -g "$groupname" "$username"
-        if [ $? -ne 0 ]; then
-            echo_failure "Could not create user '$username'" "$fail"
-            return 1
-        fi
-        echo_success "Create user '$username'" "$ok"
+        local ret=$?
+        check_result $ret "Create user '$username'"
+        return $ret
     fi
     return 0
 }
@@ -502,22 +535,20 @@ create_group() {
     test_group $groupname
     if [ $? -ne 0 ]; then
         groupadd -r "$groupname"
-        if [ $? -ne 0 ] ; then
-            echo_failure "Could not create group '$groupname'" "$fail"
-            return 1
-        fi
-        echo_success "Create group '$groupname'" "$ok"
+        local ret=$?
+        check_result $ret "Create group '$groupname'"
+        return $ret
     fi
     return 0
 }
 
 test_user() {
-    grep "^$1:" /etc/passwd &>/dev/null
+    ${GREP} "^$1:" /etc/passwd &>/dev/null
     return $?
 }
 
 test_group() {
-    grep "^$1:" /etc/group &>/dev/null
+    ${GREP} "^$1:" /etc/group &>/dev/null
     return $?
 }
 
@@ -533,8 +564,22 @@ add_user_to_group() {
     local user=$1
     local group=$2
     if [ -z "$user" -o -z "$group" ]; then
-        echo_failure "Could not add group $group to user $user" "$fail"
+        echo_failure "Cannot add user '$user' to group '$group'" "$fail"
         return 1
+    fi
+    test_user $user
+    if [ $? -ne 0 ]; then
+        echo_failure "User '$user' does not exist" "$fail"
+        return 1
+    fi
+    test_group $group
+    if [ $? -ne 0 ]; then
+        echo_failure "Group '$group' does not exist" "$fail"
+        return 1
+    fi
+    if [ $(id -nG "$user" | ${GREP} "$group" | wc -l) -gt "0" ] ; then
+        echo_info "Add user '$user' to group '$group'" "$passed"
+        return 0
     fi
     usermod -a -G $group $user &>/dev/null
     local ret=$?
@@ -546,15 +591,13 @@ add_user_to_group() {
 ## Check php version which should be greater than the minimum version required
 ## @Globals	PHP_BIN, PHP_MIN_VERSION
 #----
-check_php_version() {
+test_php_version() {
     local php_version=$($PHP_BINARY --version | head -n 1 | cut -d " " -f 2 | cut -c 1,3)
     if [ "$php_version" -lt "$PHP_MIN_VERSION" ] ; then
-        echo_failure "$(gettext "Minimum PHP version required is : $PHP_MIN_VERSION")" "$fail"
+        add_error_message "Minimum PHP version required is '$PHP_MIN_VERSION', found '$php_version'"
         return 1
-    else
-        # echo_success "$(gettext "PHP version: $php_version")" "$ok"
-        return 0
     fi
+    return 0
 }
 
 
@@ -570,54 +613,51 @@ check_perl_lib_directory() {
 ## Copy ssh keys to gorgone and add proper rights
 #----
 copy_ssh_keys_to_gorgone() {
-    if [ ! -d "$GORGONE_VARLIB/.ssh" ] ; then
-        mkdir -p "$GORGONE_VARLIB/.ssh"
+    if [ ! -d "$GORGONE_VARLIB_DIR/.ssh" ] ; then
+        mkdir -p "$GORGONE_VARLIB_DIR/.ssh"
         if [ $? -ne 0 ] ; then
-            echo_failure "$(gettext "Cannot create the subfolder $GORGONE_VARLIB/.ssh")" "$fail"
+            echo_failure "$(gettext "Cannot create the subfolder $GORGONE_VARLIB_DIR/.ssh")" "$fail"
             return 1
         fi
     fi
 
-    if [ -z $CENTREON_SPOOL_SSH ] ; then
+    if [ -z "$CENTREON_HOME/.ssh" ] ; then
         echo_failure "$(gettext "Cannot find the '.ssh' folder in the $CENTREON_USER home folder")" "$fail"
         return 1
     fi
 
-    cp -Rf "$CENTREON_SPOOL_SSH/.ssh" "$GORGONE_VARLIB"
+    cp -Rf "$CENTREON_HOME/.ssh" "$GORGONE_VARLIB_DIR"
     if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot move the SSH keys to $GORGONE_VARLIB/.ssh")" "$fail"
+        echo_failure "$(gettext "Cannot move the SSH keys to $GORGONE_VARLIB_DIR/.ssh")" "$fail"
         return 1
     fi
 
-    ${CHOWN} -R "$GORGONE_USER:$GORGONE_GROUP" "$GORGONE_VARLIB/.ssh"
+    ${CHOWN} -R "$GORGONE_USER:$GORGONE_GROUP" "$GORGONE_VARLIB_DIR/.ssh"
     if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot modify the owner of the files in $GORGONE_VARLIB/.ssh folder to $GORGONE_USER:$GORGONE_GROUP")" "$fail"
+        echo_failure "$(gettext "Cannot modify the owner of the files in $GORGONE_VARLIB_DIR/.ssh folder to $GORGONE_USER:$GORGONE_GROUP")" "$fail"
         return 1
     fi
 
-    ${CHMOD} 600 "$GORGONE_VARLIB/.ssh/id_rsa"
+    ${CHMOD} 600 "$GORGONE_VARLIB_DIR/.ssh/id_rsa"
     if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot modify the rights of files in folder $GORGONE_VARLIB/.ssh")" "$fail"
+        echo_failure "$(gettext "Cannot modify the rights of files in folder $GORGONE_VARLIB_DIR/.ssh")" "$fail"
         return 1
     fi
 
-    echo_success "$(gettext "Copy SSH keys to $GORGONE_VARLIB/.ssh")" "$ok"
+    echo_success "$(gettext "Copy SSH keys to $GORGONE_VARLIB_DIR/.ssh")" "$ok"
     return 0
 }
 
-#----
-## Define apache service init script and ask to reload apache
-## @return 0 	Apache reload OK
-## @return 1	Apache reload FAIL
-#----
 reload_service_apache() {
     local service=""
-    if [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | grep httpd24-httpd | wc -l) -gt "0" ] ; then
+    if [ ! -z $APACHE_SERVICE ] ; then
+        service="$APACHE_SERVICE"
+    elif [ -x /bin/systemctl ] ; then
+        if [ $(/bin/systemctl list-units | ${GREP} httpd24-httpd | wc -l) -gt "0" ] ; then
             service="httpd24-httpd"
-        elif [ $(/bin/systemctl list-units | grep httpd | wc -l) -gt "0" ] ; then
+        elif [ $(/bin/systemctl list-units | ${GREP} httpd | wc -l) -gt "0" ] ; then
             service="httpd"
-        elif [ $(/bin/systemctl list-units | grep apache2 | wc -l) -gt "0" ] ; then
+        elif [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -gt "0" ] ; then
             service="apache2"
         else
             echo_failure "Cannot find Apache service" "$fail"
@@ -625,60 +665,46 @@ reload_service_apache() {
         fi
     fi
 
-    /bin/systemctl enable $service >> $LOG_FILE 2>&1
-    /bin/systemctl reload $service >> $LOG_FILE 2>&1
-    if [ "$?" -eq 0 ] ; then
-        echo_success "Reloading Apache service" "$ok"
-        return 0
-    else
-        echo_failure "Reloading Apache service '$service'" "$fail"
-        return 1
-    fi
+    enable_service "$service"
+    reload_service "$service"
 }
 
 enable_conf_apache() {
-    if [ $(/bin/systemctl list-units | grep apache2 | wc -l) -eq "0" ] ; then
+    if [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -eq "0" ] ; then
         return 0
     fi
 
     a2enconf 10-centreon  >> $LOG_FILE 2>&1
-    if [ "$?" -eq 0 ] ; then
-        echo_success "Enabling Apache configuration" "$ok"
-        return 0
-    else
-        echo_failure "Enabling Apache configuration '10-centreon'" "$fail"
-        return 1
-    fi
+    local ret=$?
+    check_result $ret "Enabling Apache configuration '10-centreon'"
+    return $ret
 }
 
 restart_service_php_fpm() {
     local service=""
-    if [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | grep php | grep fpm | wc -l) -gt "0" ] ; then
-            service=$(/bin/systemctl list-units | grep php | grep fpm | cut -f 3 -d " ")
+    if [ ! -z $PHPFPM_SERVICE ] ; then
+        service="$PHPFPM_SERVICE"
+    elif [ -x /bin/systemctl ] ; then
+        if [ $(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | wc -l) -gt "0" ] ; then
+            service=$(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | cut -f 3 -d " ")
         else
             echo_failure "Cannot find PHP FPM service" "$fail"
             return 1
         fi
     fi
 
-    /bin/systemctl enable $service >> $LOG_FILE 2>&1
-    /bin/systemctl restart $service >> $LOG_FILE 2>&1
-    if [ "$?" -eq 0 ] ; then
-        echo_success "Restarting PHP FPM service" "$ok"
-        return 0
-    else
-        echo_failure "Restarting PHP FPM service '$service" "$fail"
-        return 1
-    fi
+    enable_service "$service"
+    restart_service "$service"
 }
 
 restart_service_mariadb() {
     local service=""
-    if [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | grep mariadb | wc -l) -gt "0" ] ; then
+    if [ ! -z $MARIADB_SERVICE ] ; then
+        service="$MARIADB_SERVICE"
+    elif [ -x /bin/systemctl ] ; then
+        if [ $(/bin/systemctl list-units | ${GREP} mariadb | wc -l) -gt "0" ] ; then
             service="mariadb"
-        elif [ $(/bin/systemctl list-units | grep mysql | wc -l) -gt "0" ] ; then
+        elif [ $(/bin/systemctl list-units | ${GREP} mysql | wc -l) -gt "0" ] ; then
             service="mysql"
         else
             echo_failure "Cannot find MariaDB service" "$fail"
@@ -686,33 +712,54 @@ restart_service_mariadb() {
         fi
     fi
 
-    /bin/systemctl enable $service >> $LOG_FILE 2>&1
-    /bin/systemctl restart $service >> $LOG_FILE 2>&1
-    if [ "$?" -eq 0 ] ; then
-        echo_success "Restarting MariaDB service" "$ok"
-        return 0
-    else
-        echo_failure "Restarting MariaDB service '$service" "$fail"
-        return 1
-    fi
+    enable_service "$service"
+    restart_service "$service"
 }
 
-enable_service_centreon() {
-    local service=""
+enable_service() {
+    local service="$1"
 
-    /bin/systemctl enable centreon >> $LOG_FILE 2>&1
-    if [ "$?" -eq 0 ] ; then
-        echo_success "Enabling Centreon service" "$ok"
-        return 0
-    else
-        echo_failure "Enabling Centreon service 'centreon'" "$fail"
-        return 1
+    if [ -x /bin/systemctl ] ; then
+        /bin/systemctl enable $service >> $LOG_FILE 2>&1
+        local ret=$?
+        check_result $ret "Enabling service '$service'"
+        return $ret
     fi
+    return 1
+}
+
+reload_service() {
+    local service="$1"
+
+    if [ -x /bin/systemctl ] ; then
+        /bin/systemctl reload $service >> $LOG_FILE 2>&1
+        local ret=$?
+        check_result $ret "Reloading service '$service'"
+        return $ret
+    fi
+    return 1
+}
+
+restart_service() {
+    local service="$1"
+
+    if [ -x /bin/systemctl ] ; then
+        /bin/systemctl restart $service >> $LOG_FILE 2>&1
+        local ret=$?
+        check_result $ret "Restarting service '$service'"
+        return $ret
+    fi
+    return 1
 }
 
 reload_daemon() {
-    /bin/systemctl daemon-reload >> $LOG_FILE 2>&1
-    return $?
+    if [ -x /bin/systemctl ] ; then
+        /bin/systemctl daemon-reload >> $LOG_FILE 2>&1
+        local ret=$?
+        check_result $ret "Reload systemctl daemon"
+        return $ret
+    fi
+    return 1
 }
 
 #----
@@ -935,7 +982,7 @@ copy_in_tmp_dir() {
     local srclistcp="bin cron config logrotate GPL_LIB lib snmptrapd src vendor www api tmpl install .env .env.local.php bootstrap.php container.php composer.json package.json package-lock.json"
 
     if [ -d $TMP_DIR ] ; then
-        echo_passed "Directory '$TMP_DIR' already exists, it will be moved..."
+        echo_passed "Directory '$TMP_DIR' already exists, moving it..."
         mv $TMP_DIR $TMP_DIR.`date +%Y%m%d-%k%m%S`
     fi
 
@@ -1002,7 +1049,7 @@ replace_macro() {
             -e 's|@WEB_GROUP@|'"$APACHE_GROUP"'|gi' \
             -e 's|@APACHE_GROUP@|'"$APACHE_GROUP"'|gi'\
             -e 's|@PHPFPM_LOG_DIR@|'"$PHPFPM_LOG_DIR"'|gi'\
-            -e 's|@PHPFPM_VAR_DIR@|'"$PHPFPM_VAR_DIR"'|gi'\
+            -e 's|@PHPFPM_VARLIB_DIR@|'"$PHPFPM_VARLIB_DIR"'|gi'\
             -e 's|@PHP_TIMEZONE@|'"$PHP_TIMEZONE"'|gi'
         if [ "$?" -ne 0 ] ; then
             return 1
@@ -1140,38 +1187,6 @@ purge_centreon_tmp_dir() {
     done
     return 0
 }
-
-#----
-## Find file with macro in directory.
-## @param	macro (separate with comma)
-## @param 	folder where to find
-## @param	sub directory to find
-## @param	file to search (possible to use pattern)
-## @param	variable where define a list of file (temporary file)
-## @Globals	LOG_FILE, TMP_DIR
-#----
-find_macros_in_dir() {
-    local macro="$1"
-    local src_dir="$2"
-    local sub_dir="$3"
-    local file="$4"
-    local var_ref="$5"
-    local file_out_tmp=""
-    file_out_tmp=$(mktemp $TMP_DIR/file_out_tmp.XXXXXX)
-
-    for mac in ${macro//,/ } ; do
-        log "INFO" "$(gettext "Search file for macro") : $mac"
-        ( cd $src_dir ;
-            find $sub_dir -mindepth 1 -type f -name "$file" | \
-                xargs ${GREP} -l "$mac" | \
-                uniq >> "$file_out_tmp" 2>>"$LOG_FILE";
-        )
-    done
-
-    eval $var_ref=$file_out_tmp
-    return 0
-}
-
 
 #----
 ## Check result and print a message
