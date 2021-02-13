@@ -95,13 +95,13 @@ fi
 echo_info "Found distribution" "$DISTRIB"
 
 if [ -f $INSTALL_DIR/inputvars.$DISTRIB.env ]; then
-    echo_info "Loading distribution specific input variables" "$INSTALL_DIR/inputvars.$DISTRIB.env"
-    . $INSTALL_DIR/inputvars.$DISTRIB.env
+    echo_info "Loading distribution specific input variables" "install/inputvars.$DISTRIB.env"
+    source $INSTALL_DIR/inputvars.$DISTRIB.env
 fi
 
 if [ -f $INSTALL_DIR/../inputvars.env ]; then
-    echo_info "Loading user specific input variables" "$INSTALL_DIR/../inputvars.env"
-    . $INSTALL_DIR/../inputvars.env
+    echo_info "Loading user specific input variables" "inputvars.env"
+    source $INSTALL_DIR/../inputvars.env
 fi
 
 ## Use TRAPs to call clean_and_exit when user press
@@ -215,7 +215,7 @@ fi
 if [ "$use_upgrade_files" -eq 1 ] ; then
     if [ -e "$inst_upgrade_dir/instCentWeb.conf" ] ; then
         log "INFO" "Load variables: $inst_upgrade_dir/instCentWeb.conf"
-        . $inst_upgrade_dir/instCentWeb.conf
+        source $inst_upgrade_dir/instCentWeb.conf
     fi
 fi
 
@@ -613,109 +613,50 @@ enable_service "centreontrapd"
 
 ### Gorgone
 copy_file_no_replace "$TMP_DIR/source/install/src/gorgoneRootConfigTemplate.yaml" \
-    "$GORGONE_ETC_DIR/config.d/30-centreon.yaml"
+    "$GORGONE_ETC_DIR/config.d/30-centreon.yaml" "Gorgone configuration"
 set_ownership "$GORGONE_ETC_DIR" "$GORGONE_USER" "$GORGONE_GROUP"
 set_permissions "$GORGONE_ETC_DIR/config.d/30-centreon.yaml" "644"
 
 ### Symfony
-copy_file_no_replace "$TMP_DIR/source/.env" "$CENTREON_INSTALL_DIR"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "Symfony .env" "$ok"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Symfony .env" "$CENTREON_INSTALL_DIR/.env.new"
-fi
-copy_file_no_replace "$TMP_DIR/source/.env.local.php" "$CENTREON_INSTALL_DIR"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "Symfony .env.local.php" "$ok"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Symfony .env.local.php" "$CENTREON_INSTALL_DIR/.env.local.php.new"
-fi
+copy_file_no_replace "$TMP_DIR/source/.env" "$CENTREON_INSTALL_DIR" "Symfony .env"
+copy_file_no_replace "$TMP_DIR/source/.env.local.php" "$CENTREON_INSTALL_DIR" "Symfony .env.local.php"
 
 ### Logrotate
-copy_file_no_replace "$TMP_DIR/source/logrotate/centreon" "$LOGROTATED_ETC_DIR/centreon"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "Logrotate Centreon configuration" "$ok"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Logrotate Centreon configuration" "$LOGROTATED_ETC_DIR/centreon.new"
-fi
-copy_file_no_replace "$TMP_DIR/source/logrotate/centreontrapd" "$LOGROTATED_ETC_DIR/centreontrapd"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "Logrotate Centreontrapd configuration" "$ok"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Logrotate Centreontrapd configuration" "$LOGROTATED_ETC_DIR/centreontrapd.new"
-fi
+copy_file_no_replace "$TMP_DIR/source/logrotate/centreon" "$LOGROTATED_ETC_DIR/centreon" "Logrotate Centreon configuration"
+copy_file_no_replace "$TMP_DIR/source/logrotate/centreontrapd" "$LOGROTATED_ETC_DIR/centreontrapd" "Logrotate Centreontrapd configuration"
 
 ### Apache
 reload_apache="0"
 if [ $USE_HTTPS -eq 1 ] ; then
-    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-apache-https.conf" "$APACHE_CONF_DIR/10-centreon.conf"
-    retval=$?
+    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-apache-https.conf" "$APACHE_CONF_DIR/10-centreon.conf" "Apache configuration"
+    if [ "$?" -eq 0 ] ; then reload_apache="1" ; fi
 else
-    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-apache.conf" "$APACHE_CONF_DIR/10-centreon.conf"
-    retval=$?
-fi
-if [ "$retval" == 0 ] ; then
-    echo_success "Apache configuration" "$ok"
-    reload_apache="1"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "Apache configuration" "$APACHE_CONF_DIR/centreon.conf.new"
+    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-apache.conf" "$APACHE_CONF_DIR/10-centreon.conf" "Apache configuration"
+    if [ "$?" -eq 0 ] ; then reload_apache="1" ; fi
 fi
 
 ### PHP FPM
 restart_php_fpm="0"
 create_dir "$PHPFPM_VARLIB_DIR/session"
 create_dir "$PHPFPM_VARLIB_DIR/wsdlcache"
-set_ownership "root" "$APACHE_USER"
+set_ownership "$PHPFPM_VARLIB_DIR/session" "root" "$APACHE_USER"
 set_permissions "$PHPFPM_VARLIB_DIR/session" "770"
-copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm.conf" "$PHPFPM_CONF_DIR/centreon.conf"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "PHP FPM configuration" "$ok"
-    restart_php_fpm="1"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "PHP FPM configuration" "$PHPFPM_CONF_DIR/centreon.conf.new"
-fi
-copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm-systemd.conf" "$PHPFPM_SERVICE_DIR/centreon.conf"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "PHP FPM service configuration" "$ok"
-    restart_php_fpm="1"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "PHP FPM service configuration" "$PHPFPM_SERVICE_DIR/centreon.conf.new"
-fi
-copy_file_no_replace "$TMP_DIR/source/install/src/php.ini" "$PHP_ETC_DIR/50-centreon.ini"
-retval=$?
-if [ "$retval" == 0 ] ; then
-    echo_success "PHP configuration" "$ok"
-    restart_php_fpm="1"
-elif [ "$retval" == 2 ] ; then
-    echo_passed "PHP configuration" "$PHP_ETC_DIR/50-centreon.ini.new"
-fi
+copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm.conf" "$PHPFPM_CONF_DIR/centreon.conf" "PHP FPM configuration"
+if [ "$?" -eq 0 ] ; then restart_php_fpm="1" ; fi
+copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm-systemd.conf" "$PHPFPM_SERVICE_DIR/centreon.conf" "PHP FPM service configuration"
+if [ "$?" -eq 0 ] ; then restart_php_fpm="1" ; fi
+copy_file_no_replace "$TMP_DIR/source/install/src/php.ini" "$PHP_ETC_DIR/50-centreon.ini" "PHP configuration"
+if [ "$?" -eq 0 ] ; then restart_php_fpm="1" ; fi
 
 ### MariaDB
 restart_mariadb="0"
 if [ $install_mariadb_conf -eq 1 ] ; then
-    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-mysql.cnf" "$MARIADB_CONF_DIR/centreon.cnf"
-    retval=$?
-    if [ "$retval" == 0 ] ; then
-        echo_success "MariaDB configuration" "$ok"
-        restart_mariadb="1"
-    elif [ "$retval" == 2 ] ; then
-        echo_passed "MariaDB configuration" "$MARIADB_CONF_DIR/centreon.cnf.new"
-    fi
-    copy_file_no_replace "$TMP_DIR/source/install/src/mariadb-systemd.conf" "$MARIADB_SERVICE_DIR/centreon.conf"
-    retval=$?
-    if [ "$retval" == 0 ] ; then
-        echo_success "MariaDB service configuration" "$ok"
-        restart_mariadb="1"
-    elif [ "$retval" == 2 ] ; then
-        echo_passed "MariaDB service configuration" "$MARIADB_SERVICE_DIR/centreon.conf.new"
-    fi
+    copy_file_no_replace "$TMP_DIR/source/install/src/centreon-mysql.cnf" "$MARIADB_CONF_DIR/centreon.cnf" "MariaDB configuration"
+    if [ "$?" -eq 0 ] ; then restart_mariadb="1" ; fi
+    copy_file_no_replace "$TMP_DIR/source/install/src/mariadb-systemd.conf" "$MARIADB_SERVICE_DIR/centreon.conf" "MariaDB service configuration"
+    if [ "$?" -eq 0 ] ; then restart_mariadb="1" ; fi
 fi
+
 if [ "$reload_apache" -eq 1 ] || [ "$restart_php_fpm" -eq 1 ] || [ "$restart_mariadb" -eq 1 ] ; then
     reload_daemon
 fi
@@ -730,8 +671,6 @@ fi
 if [ "$restart_mariadb" -eq 1 ] ; then
     restart_service_mariadb
 fi
-
-# End
 
 ## Purge working directories
 purge_centreon_tmp_dir "silent"

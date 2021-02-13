@@ -426,22 +426,26 @@ copy_file() {
 copy_file_no_replace() {
     local file="$1"
     local dest="$2"
-    local code=0
+    local message="$3"
+    local exist=0
     if [ ! -f "$file" ] ; then
         echo_failure "Not a file '$file'" "$fail"
-        code=1
-    else
-        if [ -f "$dest" ] ; then
-            dest=${dest}".new"
-            code=2
-        fi
-        cp -f $file $dest
-        if [ $? -ne 0 ] ; then
-            echo_failure "Copy of '$file' to '$dest' failed" "$fail"
-            code=1
-        fi        
+        return 1
+    elif [ -f "$dest" ] ; then
+        dest=${dest}".new"
+        exist=1
     fi
-    return "$code"
+    cp -f $file $dest
+    if [ $? -ne 0 ] ; then
+        echo_failure "Copy of '$file' to '$dest'" "$fail"
+        return 1
+    elif [ $exist == "1" ] ; then
+        echo_passed "$message" "$dest"
+        return 2
+    else
+        echo_success "$message" "$ok"
+        return 0
+    fi
 }
 
 copy_dir() {
@@ -453,7 +457,7 @@ copy_dir() {
     else
         cp -rpf $dir $dest
         if [ $? -ne 0 ] ; then
-            echo_failure "Copy of '$dir' to '$dest' failed" "$fail"
+            echo_failure "Copy of '$dir' to '$dest'" "$fail"
             return 1
         fi
     fi
@@ -465,6 +469,7 @@ set_ownership() {
     local user="$2"
     local group="$3"
     if [ -z "$dir_file" ] ; then
+        echo_info "File or directory not defined"
         return 1
     fi
     if [ -f "$dir_file" ] ; then
@@ -487,6 +492,7 @@ set_permissions() {
     local dir_file="$1"
     local mode="$2"
     if [ -z "$dir_file" ] ; then
+        echo_info "File or directory not defined"
         return 1
     fi
     if [ -f "$dir_file" ] ; then
