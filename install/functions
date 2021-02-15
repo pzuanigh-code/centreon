@@ -607,72 +607,19 @@ test_php_version() {
 }
 
 
-check_perl_lib_directory() {
-    PERL_LIB_DIR=$(perl -V:installvendorlib | cut -d "'" -f 2)
-    # for freebsd
-    if [ "$PERL_LIB_DIR" = "" -o "$PERL_LIB_DIR" = "UNKNOWN" ]; then
-        PERL_LIB_DIR=$(perl -V:installsitelib | cut -d "'" -f 2)
-    fi
-}
-
-#----
-## Copy ssh keys to gorgone and add proper rights
-#----
-copy_ssh_keys_to_gorgone() {
-    if [ ! -d "$GORGONE_VARLIB_DIR/.ssh" ] ; then
-        mkdir -p "$GORGONE_VARLIB_DIR/.ssh"
-        if [ $? -ne 0 ] ; then
-            echo_failure "$(gettext "Cannot create the subfolder $GORGONE_VARLIB_DIR/.ssh")" "$fail"
-            return 1
+find_perl_info() {
+    if [ -z $PERL_LIB_DIR ] ; then
+        PERL_LIB_DIR=$(perl -V:installvendorlib | cut -d "'" -f 2)
+        # for freebsd
+        if [ "$PERL_LIB_DIR" = "" -o "$PERL_LIB_DIR" = "UNKNOWN" ]; then
+            PERL_LIB_DIR=$(perl -V:installsitelib | cut -d "'" -f 2)
         fi
     fi
 
-    if [ -z "$CENTREON_HOME/.ssh" ] ; then
-        echo_failure "$(gettext "Cannot find the '.ssh' folder in the $CENTREON_USER home folder")" "$fail"
-        return 1
-    fi
+    PERL_LIB_DIR=${PERL_LIB_DIR%/}
+    export PERL_LIB_DIR
 
-    cp -Rf "$CENTREON_HOME/.ssh" "$GORGONE_VARLIB_DIR"
-    if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot move the SSH keys to $GORGONE_VARLIB_DIR/.ssh")" "$fail"
-        return 1
-    fi
-
-    ${CHOWN} -R "$GORGONE_USER:$GORGONE_GROUP" "$GORGONE_VARLIB_DIR/.ssh"
-    if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot modify the owner of the files in $GORGONE_VARLIB_DIR/.ssh folder to $GORGONE_USER:$GORGONE_GROUP")" "$fail"
-        return 1
-    fi
-
-    ${CHMOD} 600 "$GORGONE_VARLIB_DIR/.ssh/id_rsa"
-    if [ $? -ne 0 ] ; then
-        echo_failure "$(gettext "Cannot modify the rights of files in folder $GORGONE_VARLIB_DIR/.ssh")" "$fail"
-        return 1
-    fi
-
-    echo_success "$(gettext "Copy SSH keys to $GORGONE_VARLIB_DIR/.ssh")" "$ok"
     return 0
-}
-
-reload_service_apache() {
-    local service=""
-    if [ ! -z $APACHE_SERVICE ] ; then
-        service="$APACHE_SERVICE"
-    elif [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | ${GREP} httpd24-httpd | wc -l) -gt "0" ] ; then
-            service="httpd24-httpd"
-        elif [ $(/bin/systemctl list-units | ${GREP} httpd | wc -l) -gt "0" ] ; then
-            service="httpd"
-        elif [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -gt "0" ] ; then
-            service="apache2"
-        else
-            echo_failure "Cannot find Apache service" "$fail"
-            return 1
-        fi
-    fi
-
-    enable_service "$service"
-    reload_service "$service"
 }
 
 enable_conf_apache() {
@@ -684,42 +631,6 @@ enable_conf_apache() {
     local ret=$?
     check_result $ret "Enabling Apache configuration '10-centreon'"
     return $ret
-}
-
-restart_service_php_fpm() {
-    local service=""
-    if [ ! -z $PHPFPM_SERVICE ] ; then
-        service="$PHPFPM_SERVICE"
-    elif [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | wc -l) -gt "0" ] ; then
-            service=$(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | cut -f 3 -d " ")
-        else
-            echo_failure "Cannot find PHP FPM service" "$fail"
-            return 1
-        fi
-    fi
-
-    enable_service "$service"
-    restart_service "$service"
-}
-
-restart_service_mariadb() {
-    local service=""
-    if [ ! -z $MARIADB_SERVICE ] ; then
-        service="$MARIADB_SERVICE"
-    elif [ -x /bin/systemctl ] ; then
-        if [ $(/bin/systemctl list-units | ${GREP} mariadb | wc -l) -gt "0" ] ; then
-            service="mariadb"
-        elif [ $(/bin/systemctl list-units | ${GREP} mysql | wc -l) -gt "0" ] ; then
-            service="mysql"
-        else
-            echo_failure "Cannot find MariaDB service" "$fail"
-            return 1
-        fi
-    fi
-
-    enable_service "$service"
-    restart_service "$service"
 }
 
 enable_service() {
@@ -768,11 +679,31 @@ reload_daemon() {
     return 1
 }
 
+deploy_sysconfig() {
+    local service="$1"
+    local file="$2"
+
+    if [ -d /etc/sysconfig ] ; then
+        copy_file "$file" "/etc/sysconfig/$service"
+        local ret=$?
+        check_result $ret "Copy '$service' sysconfig"
+        return $ret
+    elif [ -d /etc/default ] ; then
+        copy_file "$file" "/etc/default/$service"
+        local ret=$?
+        check_result $ret "Copy '$service' sysconfig"
+        return $ret
+    else
+        echo_failure "Cannot find sysconfig directory" "$fail"
+        return 1
+    fi
+}
+
 #----
 ## Check PHP FPM configuration directory
 ## @Globals	PHPFPM_CONF_DIR
-#----
-check_php_fpm_directory() {
+find_phpfpm_info() {
+    # PHP FPM lcog directory
     if [ -z "$PHPFPM_CONF_DIR" ] ; then
         if [ -d /etc/php/7.2/fpm/pool.d ]; then
             PHPFPM_CONF_DIR="/etc/php/7.2/fpm/pool.d"
@@ -790,21 +721,36 @@ check_php_fpm_directory() {
             PHPFPM_CONF_DIR="/etc/php-fpm.d"
         fi
     fi
+
     PHPFPM_CONF_DIR=${PHPFPM_CONF_DIR%/}
     export PHPFPM_CONF_DIR
 
+    # PHP FPM log directory
     if [ -z "$PHPFPM_LOG_DIR" ] ; then
         if [ -d /var/log/php-fpm ]; then
             PHPFPM_LOG_DIR="/var/log/php-fpm"
         fi
     fi
+
     PHPFPM_LOG_DIR=${PHPFPM_LOG_DIR%/}
     export PHPFPM_LOG_DIR
+
+    # PHP FPM service
+    if [ -z $PHPFPM_SERVICE ] ; then
+        if [ -x /bin/systemctl ] ; then
+            if [ $(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | wc -l) -gt "0" ] ; then
+                PHPFPM_SERVICE=$(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | cut -f 3 -d " ")
+            fi
+        fi
+    fi
+
+    export PHPFPM_SERVICE
 
     return 0
 }
 
-check_mariadb_directory() {
+find_mariadb_info() {
+    # MariaDB configuration directory
     if [ -z "$MARIADB_CONF_DIR" ] ; then
         if [ -d /etc/my.cnf.d ]; then
             MARIADB_CONF_DIR="/etc/my.cnf.d"
@@ -812,14 +758,22 @@ check_mariadb_directory() {
             MARIADB_CONF_DIR="/etc/mysql/conf.d"
         fi
     fi
+
     MARIADB_CONF_DIR=${MARIADB_CONF_DIR%/}
     export MARIADB_CONF_DIR
+    
+    # MariaDB service
+    if [ -z $MARIADB_SERVICE ] ; then
+        if [ -x /bin/systemctl ] ; then
+            if [ $(/bin/systemctl list-units | ${GREP} mariadb | wc -l) -gt "0" ] ; then
+                MARIADB_SERVICE="mariadb"
+            elif [ $(/bin/systemctl list-units | ${GREP} mysql | wc -l) -gt "0" ] ; then
+                MARIADB_SERVICE="mysql"
+            fi
+        fi
+    fi
 
-    return 0
-}
-
-print_mariadb_conf() {
-	echo "$(<$BASE_DIR/install/src/centreon-mysql.cnf)"
+    export MARIADB_SERVICE
 
     return 0
 }
@@ -829,8 +783,9 @@ print_mariadb_conf() {
 ## @return 0
 ## @Globals	APACHE_DIR, APACHE_CONF_DIR, APACHE_CONF
 #----
-check_apache_directory() {
-    if [ -z "$APACHE_DIR" -o -z "$APACHE_CONF_DIR" ] ; then
+find_apache_info() {
+    # Apache directories
+    if [ -z "$APACHE_DIR" ] || [ -z "$APACHE_CONF_DIR" ] ; then
         if [ -d /opt/rh/httpd24/root/etc/httpd/conf ] ; then
             APACHE_DIR="/opt/rh/httpd24/root/etc/httpd/conf"
             APACHE_CONF_DIR="/opt/rh/httpd24/root/etc/httpd/conf.d"
@@ -862,120 +817,112 @@ check_apache_directory() {
             APACHE_CONF_DIR="/usr/local/etc/apache22/Includes"
         fi
     fi
+
     APACHE_DIR=${APACHE_DIR%/}
     export APACHE_DIR
     APACHE_CONF_DIR=${APACHE_CONF_DIR%/}
     export APACHE_CONF_DIR
 
-    # if [ -z "$APACHE_CONF" ] ; then
-    #     if [ -e $APACHE_DIR/apache2.conf ] ; then
-    #         APACHE_CONF="apache2.conf"
-    #     elif [ -e $APACHE_DIR/apache.conf ] ; then
-    #         APACHE_CONF="apache.conf"
-    #     elif [ -e $APACHE_DIR/commondhttpd.conf ] ; then
-    #         APACHE_CONF="commondhttpd.conf"
-    #     elif [ -e $APACHE_DIR/httpd.conf ] ; then
-    #         APACHE_CONF="httpd.conf"
-    #     fi
-    # fi
-    # APACHE_CONF=${APACHE_CONF%/}
-    # export APACHE_CONF
-    return 0
-}
-
-#----
-## Find Apache user
-## @Globals	APACHE_USER, APACHE_DIR, APACHE_CONF
-#----
-check_apache_user() {
-    # init APACHE_USER if not define
-    APACHE_USER="$APACHE_USER"
-
-    if [ -n "$APACHE_USER" ] ; then
-        return 0
+    if [ -z "$APACHE_CONF" ] ; then
+        if [ -e $APACHE_DIR/apache2.conf ] ; then
+            APACHE_CONF="apache2.conf"
+        elif [ -e $APACHE_DIR/apache.conf ] ; then
+            APACHE_CONF="apache.conf"
+        elif [ -e $APACHE_DIR/commondhttpd.conf ] ; then
+            APACHE_CONF="commondhttpd.conf"
+        elif [ -e $APACHE_DIR/httpd.conf ] ; then
+            APACHE_CONF="httpd.conf"
+        fi
     fi
+
+    APACHE_CONF=${APACHE_CONF%/}
+    export APACHE_CONF
+    
+    # Apache user
     local found=0
-    if [ -e /etc/apache2/envvars ] ; then
-        # for Debian system (lenny)
-        APACHE_USER=`${CAT} /etc/apache2/envvars |${GREP} "USER" | cut -d= -f2`
-        if [ -z "$APACHE_USER" ] ; then
-            found=0
-        else
-            found=1
+    if [ -z "$APACHE_USER" ] ; then
+        if [ -e /etc/apache2/envvars ] ; then
+            # Debian
+            APACHE_USER=`${CAT} /etc/apache2/envvars |${GREP} "USER" | cut -d= -f2`
+            if [ ! -z "$APACHE_USER" ] ; then
+                found=1
+            fi
+        elif [ -e /etc/apache2/uid.conf ] ; then
+            # SUSE
+            APACHE_USER=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^User" | cut -d" " -f2`
+            if [ ! -z "$APACHE_USER" ] ; then
+                found=1
+            fi
         fi
-    elif [ -e /etc/apache2/uid.conf ] ; then
-        # for SuSe system
-        APACHE_USER=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^User" | cut -d" " -f2`
-        if [ -z "$APACHE_USER" ] ; then
-            found=0
-        else
-            found=1
+        if [ "$found" -eq 0 ] ; then
+            APACHE_USER=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^User" | cut -d" " -f2`
+            if [ -z "$APACHE_USER"  ] ; then
+                local APACHE_USER_TEMP=""
+                for fichier in $APACHE_DIR/*
+                do
+                    if [ -f "$fichier" ] ; then
+                        APACHE_USER_TEMP=`${CAT} $fichier | ${GREP} -e "^User" | cut -d" " -f2`
+                        if [ -n "$APACHE_USER_TEMP" ] ; then
+                            APACHE_USER=$APACHE_USER_TEMP
+                        fi
+                    fi
+                done
+            fi
         fi
     fi
-    if [ "$found" -eq 0 ] ; then
-        APACHE_USER=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^User" | cut -d" " -f2`
-        if [ -z "$APACHE_USER"  ] ; then
-            local APACHE_USER_TEMP=""
-            for fichier in $APACHE_DIR/*
-            do
-                if [ -f "$fichier" ] ; then
-                    APACHE_USER_TEMP=`${CAT} $fichier | ${GREP} -e "^User" | cut -d" " -f2`
-                    if [ -n "$APACHE_USER_TEMP" ] ; then
-                        APACHE_USER=$APACHE_USER_TEMP
+
+    export APACHE_USER
+
+    found=0
+    # Apache group
+    if [ -z "$APACHE_GROUP" ] ; then
+        if [ -e /etc/apache2/envvars ] ; then
+            # Debian
+            APACHE_GROUP=`${CAT} /etc/apache2/envvars |${GREP} "GROUP" |cut -d= -f2`
+            if [ ! -z "$APACHE_GROUP" ] ; then
+                found=1
+            fi
+        elif [ -e /etc/apache2/uid.conf ] ; then
+            # SUSE
+            APACHE_GROUP=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^Group" | cut -d" " -f2`
+            if [ ! -z "$APACHE_GROUP" ] ; then
+                found=1
+            fi
+        fi
+        if [ "$found" -eq 0 ] ; then
+            APACHE_GROUP=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^Group" | cut -d" " -f2`
+            if [  -z "$APACHE_GROUP"  ] ; then
+                local APACHE_GROUP_TMP=""
+                for fichier in $APACHE_DIR/*
+                do
+                    if [ -f "$fichier" ];	then
+                        APACHE_GROUP_TEMP=`${CAT} $fichier | ${GREP} -e "^Group" | cut -d" " -f2`
+                        if [ -n "$APACHE_GROUP_TEMP" ]; then
+                            APACHE_GROUP=$APACHE_GROUP_TEMP
+                        fi
                     fi
-                fi
-            done
+                done
+            fi
         fi
     fi
     
-    return 0
-}
-
-#----
-## Find Apache group
-## @Globals	APACHE_GROUP, APACHE_DIR, APACHE_CONF
-#----
-check_apache_group() {
-    # init APACHE_GROUP if not define
-    APACHE_GROUP="$APACHE_GROUP"
-
-    if [ -n "$APACHE_GROUP" ] ; then
-        return 0
-    fi
-    local found=0
-    if [ -e /etc/apache2/envvars ] ; then
-        # for debian system
-        APACHE_GROUP=`${CAT} /etc/apache2/envvars |${GREP} "GROUP" |cut -d= -f2`
-        if [ -z "$APACHE_GROUP" ] ; then
-            found=0
-        else
-            found=1
-        fi
-    elif [ -e /etc/apache2/uid.conf ] ; then
-        # for SuSe system
-        APACHE_GROUP=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^Group" | cut -d" " -f2`
-        if [ -z "$APACHE_GROUP" ] ; then
-            found=0
-        else
-            found=1
-        fi
-    fi
-    if [ "$found" -eq 0 ] ; then
-        APACHE_GROUP=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^Group" | cut -d" " -f2`
-        if [  -z "$APACHE_GROUP"  ] ; then
-            local APACHE_GROUP_TMP=""
-            for fichier in $APACHE_DIR/*
-            do
-                if [ -f "$fichier" ];	then
-                    APACHE_GROUP_TEMP=`${CAT} $fichier | ${GREP} -e "^Group" | cut -d" " -f2`
-                    if [ -n "$APACHE_GROUP_TEMP" ]; then
-                        APACHE_GROUP=$APACHE_GROUP_TEMP
-                    fi
-                fi
-            done
+    export APACHE_GROUP
+    
+    # Apache service
+    if [ -z $APACHE_SERVICE ] ; then
+        if [ -x /bin/systemctl ] ; then
+            if [ $(/bin/systemctl list-units | ${GREP} httpd24-httpd | wc -l) -gt "0" ] ; then
+                APACHE_SERVICE="httpd24-httpd"
+            elif [ $(/bin/systemctl list-units | ${GREP} httpd | wc -l) -gt "0" ] ; then
+                APACHE_SERVICE="httpd"
+            elif [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -gt "0" ] ; then
+                APACHE_SERVICE="apache2"
+            fi
         fi
     fi
 
+    export APACHE_SERVICE
+    
     return 0
 }
 

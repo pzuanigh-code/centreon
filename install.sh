@@ -247,26 +247,24 @@ test_dir_from_var "SUDOERSD_ETC_DIR" "Sudoers directory"
 test_dir_from_var "SNMP_ETC_DIR" "SNMP configuration directory"
 
 ## Apache information
-check_apache_user
-check_apache_group
-check_apache_directory
+find_apache_info
 test_user_from_var "APACHE_USER" "Apache user"
 test_group_from_var "APACHE_GROUP" "Apache group"
 test_dir_from_var "APACHE_DIR" "Apache directory"
 test_dir_from_var "APACHE_CONF_DIR" "Apache configuration directory"
 
 ## MariaDB information
-check_mariadb_directory
-test_dir "$MARIADB_CONF_DIR" "MariaDB configuration directory"
+find_mariadb_info
 install_mariadb_conf="1"
+test_dir "$MARIADB_CONF_DIR" "MariaDB configuration directory"
 if [ "$?" -ne 0 ] ; then
     echo_info "Add the following configuration on your database server:"
-    print_mariadb_conf
+    echo "$(<$BASE_DIR/install/src/centreon-mysql.cnf)"
     install_mariadb_conf="0"
 fi
 
 ## PHP information
-check_php_fpm_directory
+find_phpfpm_info
 get_timezone
 test_value_from_var "PHP_TIMEZONE" "PHP timezone"
 test_dir_from_var "PHPFPM_LOG_DIR" "PHP FPM log directory"
@@ -277,7 +275,7 @@ test_file_from_var "PHP_BINARY" "PHP binary"
 test_php_version
 
 ## Perl information
-check_perl_lib_directory
+find_perl_info
 test_dir_from_var "PERL_LIB_DIR" "Perl libraries directory"
 
 ## Engine information
@@ -584,11 +582,6 @@ add_user_to_group "$GORGONE_USER" "$BROKER_GROUP"
 add_user_to_group "$GORGONE_USER" "$ENGINE_GROUP"
 add_user_to_group "$GORGONE_USER" "$APACHE_GROUP"
 
-### Copy Pollers SSH keys (in case of upgrade) to the new "user" gorgone
-if [ "$upgrade" = "1" ]; then
-    copy_ssh_keys_to_gorgone
-fi
-
 ## Configure services
 echo_title "Configure services"
 
@@ -608,7 +601,7 @@ set_permissions "$SNMP_ETC_DIR/centreon_traps" "775"
 create_dir "$CENTREONTRAPD_SPOOL_DIR"
 set_ownership "$CENTREONTRAPD_SPOOL_DIR" "$CENTREON_USER" "$CENTREON_GROUP"
 set_permissions "$CENTREONTRAPD_SPOOL_DIR" "755"
-# config_service_centreontrapd
+deploy_sysconfig "centreontrapd" "$TMP_DIR/source/tmpl/install/redhat/centreontrapd.sysconfig"
 enable_service "centreontrapd"
 
 ### Gorgone
@@ -663,13 +656,16 @@ fi
 
 if [ "$reload_apache" -eq 1 ] ; then
     enable_conf_apache
-    reload_service_apache
+    enable_service "$APACHE_SERVICE"
+    reload_service "$APACHE_SERVICE"
 fi
 if [ "$restart_php_fpm" -eq 1 ] ; then
-    restart_service_php_fpm
+    enable_service "$PHPFPM_SERVICE"
+    restart_service "$PHPFPM_SERVICE"
 fi
 if [ "$restart_mariadb" -eq 1 ] ; then
-    restart_service_mariadb
+    enable_service "$MARIADB_SERVICE"
+    restart_service "$MARIADB_SERVICE"
 fi
 
 ## Purge working directories
