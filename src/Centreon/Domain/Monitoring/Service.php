@@ -928,7 +928,7 @@ class Service implements EntityDescriptorMetadataInterface
 
     /**
      * @param \Centreon\Domain\Monitoring\ResourceStatus|null $status
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return \Centreon\Domain\Monitoring\MonitoringResource
      */
     public function setStatus(?ResourceStatus $status): self
     {

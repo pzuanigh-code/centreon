@@ -40,7 +40,7 @@ use Centreon\Domain\Acknowledgement\Acknowledgement;
 use Centreon\Application\Normalizer\IconUrlNormalizer;
 use JMS\Serializer\Exception\ValidationFailedException;
 use Centreon\Domain\RequestParameters\RequestParameters;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 use Centreon\Domain\Monitoring\Exception\ResourceException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Centreon\Domain\Monitoring\Interfaces\ResourceServiceInterface;

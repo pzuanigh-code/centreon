@@ -27,7 +27,7 @@ use Centreon\Domain\Monitoring\ResourceGroup;
 use Centreon\Domain\Monitoring\ResourceFilter;
 use Centreon\Domain\Repository\RepositoryException;
 use Centreon\Domain\Service\AbstractCentreonService;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 use Centreon\Domain\Monitoring\Exception\ResourceException;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Centreon\Domain\Monitoring\Interfaces\ResourceServiceInterface;

@@ -28,7 +28,7 @@ use Centreon\Infrastructure\Repository\AbstractRepositoryDRB;
 use Centreon\Domain\Security\AccessGroup;
 use Centreon\Domain\Entity\EntityCreator;
 use Centreon\Domain\Monitoring\Icon;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 use Centreon\Domain\Monitoring\ResourceFilter;
 use Centreon\Domain\Monitoring\ResourceStatus;
 use Centreon\Domain\Monitoring\ResourceSeverity;

@@ -24,7 +24,7 @@ namespace Tests\Centreon\Domain\Monitoring;
 use Centreon\Domain\Monitoring\Interfaces\ResourceRepositoryInterface;
 use Centreon\Domain\Monitoring\Interfaces\MonitoringRepositoryInterface;
 use Centreon\Domain\Monitoring\ResourceService;
-use Centreon\Domain\Monitoring\Resource;
+use Centreon\Domain\Monitoring\MonitoringResource;
 use Centreon\Domain\Monitoring\ResourceFilter;
 use Centreon\Domain\Security\Interfaces\AccessGroupRepositoryInterface;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +36,7 @@ class ResourceServiceTest extends TestCase
      */
     public function testFindResources()
     {
-        $resource = (new Resource())
+        $resource = (new MonitoringResource())
             ->setId(1)
             ->setName('test');
 

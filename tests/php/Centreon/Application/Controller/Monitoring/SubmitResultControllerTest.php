@@ -25,7 +25,7 @@ use FOS\RestBundle\View\View;
 use PHPUnit\Framework\TestCase;
 use Centreon\Domain\Contact\Contact;
 use Psr\Container\ContainerInterface;
-use Centreon\Domain\Monitoring\Resource;
+use Centreon\Domain\Monitoring\MonitoringResource;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Centreon\Domain\Monitoring\SubmitResult\SubmitResult;
@@ -97,10 +97,10 @@ class SubmitResultControllerTest extends TestCase
             'performance_data' => 'proc: 0'
         ];
 
-        $this->hostResource = (new Resource())
+        $this->hostResource = (new MonitoringResource())
             ->setType($correctJsonSubmitResult['resources'][0]['type'])
             ->setId($correctJsonSubmitResult['resources'][0]['id']);
-        $this->serviceResource = (new Resource())
+        $this->serviceResource = (new MonitoringResource())
             ->setType($correctJsonSubmitResult['resources'][1]['type'])
             ->setId($correctJsonSubmitResult['resources'][1]['id'])
             ->setParent($this->hostResource);

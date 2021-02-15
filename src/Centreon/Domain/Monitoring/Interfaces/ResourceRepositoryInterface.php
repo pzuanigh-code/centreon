@@ -24,7 +24,7 @@ namespace Centreon\Domain\Monitoring\Interfaces;
 
 use Centreon\Domain\Monitoring\ResourceFilter;
 use Centreon\Domain\Contact\Interfaces\ContactInterface;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 
 interface ResourceRepositoryInterface
 {
@@ -32,7 +32,7 @@ interface ResourceRepositoryInterface
      * Find all resources.
      *
      * @param ResourceFilter $filter
-     * @return \Centreon\Domain\Monitoring\Resource[]
+     * @return \Centreon\Domain\Monitoring\MonitoringResource[]
      */
     public function findResources(ResourceFilter $filter): array;
 

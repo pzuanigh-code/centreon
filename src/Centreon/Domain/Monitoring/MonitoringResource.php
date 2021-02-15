@@ -37,7 +37,7 @@ use Centreon\Domain\Acknowledgement\Acknowledgement;
  *
  * @package Centreon\Domain\Monitoring
  */
-class Resource
+class MonitoringResource
 {
     // Groups for serialization
     public const SERIALIZER_GROUP_MAIN = 'resource_main';
@@ -102,7 +102,7 @@ class Resource
     private $timezone;
 
     /**
-     * @var \Centreon\Domain\Monitoring\Resource|null
+     * @var \Centreon\Domain\Monitoring\MonitoringResource|null
      */
     private $parent;
 
@@ -282,7 +282,7 @@ class Resource
 
     /**
      * @param int|null $id
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setId(?int $id): self
     {
@@ -301,7 +301,7 @@ class Resource
 
     /**
      * @param string|null $type
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setType(?string $type): self
     {
@@ -320,7 +320,7 @@ class Resource
 
     /**
      * @param string|null $name
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setName(?string $name): self
     {
@@ -339,7 +339,7 @@ class Resource
 
     /**
      * @param string|null $alias
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setAlias(?string $alias): self
     {
@@ -358,7 +358,7 @@ class Resource
 
     /**
      * @param string|null $fqdn
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setFqdn(?string $fqdn): self
     {
@@ -377,7 +377,7 @@ class Resource
 
     /**
      * @param \Centreon\Domain\Monitoring\Icon|null $icon
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setIcon(?Icon $icon): self
     {
@@ -452,18 +452,18 @@ class Resource
     }
 
     /**
-     * @return \Centreon\Domain\Monitoring\Resource|null
+     * @return \Centreon\Domain\Monitoring\MonitoringResource|null
      */
-    public function getParent(): ?Resource
+    public function getParent(): ?MonitoringResource
     {
         return $this->parent;
     }
 
     /**
-     * @param \Centreon\Domain\Monitoring\Resource|null $parent
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @param \Centreon\Domain\Monitoring\MonitoringResource|null $parent
+     * @return self
      */
-    public function setParent(?Resource $parent): self
+    public function setParent(?MonitoringResource $parent): self
     {
         $this->parent = $parent;
 
@@ -480,7 +480,7 @@ class Resource
 
     /**
      * @param \Centreon\Domain\Monitoring\ResourceStatus|null $status
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setStatus(?ResourceStatus $status): self
     {
@@ -553,7 +553,7 @@ class Resource
 
     /**
      * @param bool $inDowntime
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setInDowntime(bool $inDowntime): self
     {
@@ -572,7 +572,7 @@ class Resource
 
     /**
      * @param bool $acknowledged
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setAcknowledged(bool $acknowledged): self
     {
@@ -645,7 +645,7 @@ class Resource
 
     /**
      * @param \Centreon\Domain\Monitoring\ResourceSeverity|null $severity
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setSeverity(?ResourceSeverity $severity): self
     {
@@ -664,7 +664,7 @@ class Resource
 
     /**
      * @param string|null $chartUrl
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setChartUrl(?string $chartUrl): self
     {
@@ -683,7 +683,7 @@ class Resource
 
     /**
      * @param \DateTime|null $lastStatusChange
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setLastStatusChange(?DateTime $lastStatusChange): self
     {
@@ -738,7 +738,7 @@ class Resource
 
     /**
      * @param string|null $tries
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setTries(?string $tries): self
     {
@@ -757,7 +757,7 @@ class Resource
 
     /**
      * @param \DateTime|null $lastCheck
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setLastCheck(?DateTime $lastCheck): self
     {
@@ -776,7 +776,7 @@ class Resource
 
     /**
      * @param \DateTime|null $nextCheck
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setNextCheck(?DateTime $nextCheck): self
     {
@@ -795,7 +795,7 @@ class Resource
 
     /**
      * @param string|null $information
-     * @return \Centreon\Domain\Monitoring\Resource
+     * @return self
      */
     public function setInformation(?string $information): self
     {

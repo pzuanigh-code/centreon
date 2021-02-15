@@ -33,7 +33,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Centreon\Domain\Monitoring\Comment\Comment;
 use Centreon\Application\Controller\AbstractController;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 use Centreon\Domain\Monitoring\Comment\Interfaces\CommentServiceInterface;
 
 class CommentController extends AbstractController

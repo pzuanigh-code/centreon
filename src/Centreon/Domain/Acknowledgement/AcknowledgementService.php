@@ -29,7 +29,7 @@ use Centreon\Domain\Engine\Interfaces\EngineServiceInterface;
 use Centreon\Domain\Entity\EntityValidator;
 use Centreon\Domain\Exception\EntityNotFoundException;
 use Centreon\Domain\Monitoring\Interfaces\MonitoringRepositoryInterface;
-use Centreon\Domain\Monitoring\Resource as ResourceEntity;
+use Centreon\Domain\Monitoring\MonitoringResource as ResourceEntity;
 use Centreon\Domain\Monitoring\ResourceService;
 use Centreon\Domain\Security\Interfaces\AccessGroupRepositoryInterface;
 use Centreon\Domain\Service\AbstractCentreonService;

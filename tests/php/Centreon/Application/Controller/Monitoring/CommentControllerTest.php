@@ -25,7 +25,7 @@ use FOS\RestBundle\View\View;
 use PHPUnit\Framework\TestCase;
 use Centreon\Domain\Contact\Contact;
 use Psr\Container\ContainerInterface;
-use Centreon\Domain\Monitoring\Resource;
+use Centreon\Domain\Monitoring\MonitoringResource;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Centreon\Domain\Monitoring\Comment\CommentService;
@@ -93,10 +93,10 @@ class CommentControllerTest extends TestCase
             'date' => $date
         ];
 
-        $this->hostResource = (new Resource())
+        $this->hostResource = (new MonitoringResource())
             ->setType($correctJsonComment['resources'][0]['type'])
             ->setId($correctJsonComment['resources'][0]['id']);
-        $this->serviceResource = (new Resource())
+        $this->serviceResource = (new MonitoringResource())
             ->setType($correctJsonComment['resources'][1]['type'])
             ->setId($correctJsonComment['resources'][1]['id'])
             ->setParent($this->hostResource);
