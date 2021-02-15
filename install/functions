@@ -379,13 +379,22 @@ test_group_from_var() {
 #----
 create_dir() {
     local dirname="$1"
+    local user="$2"
+    local group="$3"
+    local mode="$4"
 
     if [ ! -d "$dirname" ] ; then
         mkdir -p "$dirname"
         if [ $? -ne 0 ] ; then
-            echo_failure "Could not create directory $dirname" "$fail"
+            echo_failure "Could not create directory '$dirname'" "$fail"
             return 1
         fi
+    fi
+    if [ ! -z "$user" ] && [ ! -z "$group" ] ; then
+        set_ownership "$dirname" "$user" "$group"
+    fi
+    if [ ! -z "$mode" ] ; then
+        set_permissions "$dirname" "$mode"
     fi
 
     return 0
@@ -403,6 +412,9 @@ create_dir() {
 copy_file() {
     local file="$1"
     local dest="$2"
+    local user="$3"
+    local group="$4"
+    local mode="$5"
 
     if [ ! -f "$file" ] && [[ ! "$file" =~ \*$ ]] ; then
         echo_failure "Not a file '$file'" "$fail"
@@ -412,6 +424,12 @@ copy_file() {
         if [ $? -ne 0 ] ; then
             echo_failure "Copy of '$file' to '$dest' failed" "$fail"
             return 1
+        fi
+        if [ ! -z "$user" ] && [ ! -z "$group" ] ; then
+            set_ownership "$dest" "$user" "$group"
+        fi
+        if [ ! -z "$mode" ] ; then
+            set_permissions "$dest" "$mode"
         fi
     fi
 
@@ -466,15 +484,56 @@ copy_file_no_replace() {
 copy_dir() {
     local dir="$1"
     local dest="$2"
+    local user="$3"
+    local group="$4"
+    local mode="$5"
 
     if [ ! -d "$dir" ] && [[ ! "$dir" =~ \*$ ]] ; then
-        echo_failure "Not a directory '$dirname'" "$fail"
+        echo_failure "Not a directory '$dir'" "$fail"
         return 1
     else
         cp -rpf $dir $dest
         if [ $? -ne 0 ] ; then
             echo_failure "Copy of '$dir' to '$dest'" "$fail"
             return 1
+        fi
+        if [ ! -z "$user" ] && [ ! -z "$group" ] ; then
+            set_ownership "$dest" "$user" "$group"
+        fi
+        if [ ! -z "$mode" ] ; then
+            set_permissions "$dest" "$mode"
+        fi
+    fi
+
+    return 0
+}
+
+#----
+## create_symlink
+##  Create a symbolic link for a file.
+## @param	file absolute path
+## @param	link absolute path
+## @return 0 	directory created
+## @return 1 	error message using echo_failure
+#----
+create_symlink() {
+    local file="$1"
+    local link="$2"
+    local user="$3"
+    local group="$4"
+    local mode="$5"
+
+    if [ -f "$file" ] ; then
+        ln -s "$file" "$link"
+        if [ $? -ne 0 ] ; then
+            echo_failure "Could not create symbolic link '$file' to '$link'" "$fail"
+            return 1
+        fi
+        if [ ! -z "$user" ] && [ ! -z "$group" ] ; then
+            set_ownership "$link" "$user" "$group"
+        fi
+        if [ ! -z "$mode" ] ; then
+            set_permissions "$link" "$mode"
         fi
     fi
 
@@ -483,7 +542,7 @@ copy_dir() {
 
 #----
 ## set_ownership
-##  Set the ownership on a unique file or on a directory and its content (recursively).
+##  Set the ownership on a unique file or on a directory.
 ##  Simplistic but handles the needed cases.
 ## @param	file or directory
 ## @param	user
@@ -501,7 +560,7 @@ set_ownership() {
         return 1
     fi
     if [ -f "$dir_file" ] ; then
-        chown $user:$group "$dir_file"
+        chown -h $user:$group "$dir_file"
         if [ $? -ne 0 ] ; then
             echo_failure "Set ownership '$user:$group' on file '$dir_file'" "$fail"
             return 1
@@ -1068,34 +1127,6 @@ find_apache_info() {
 }
 
 #----
-## copy_in_tmp_dir
-##  Copy source files to temporary directory.
-## @return 0 	copy done successfully
-## @return 1 	copy failed
-## @globals	BASE_DIR TMP_DIR
-#----
-copy_in_tmp_dir() {
-    local srclistcp="bin cron config logrotate GPL_LIB lib snmptrapd src vendor www api tmpl install .env .env.local.php bootstrap.php container.php composer.json package.json package-lock.json"
-
-    if [ -d $TMP_DIR ] ; then
-        echo_info "Directory '$TMP_DIR' already exists, moving it..."
-        mv $TMP_DIR $TMP_DIR.`date +%Y%m%d-%k%m%S`
-    fi
-
-    mkdir -p $TMP_DIR/source
-
-    for folder in $srclistcp ; do
-        log "INFO" "Copy $BASE_DIR/$folder to $TMP_DIR/source/"
-        cp -Rf $BASE_DIR/$folder $TMP_DIR/source
-        if [ "$?" -ne 0 ] ; then
-            return 1
-        fi
-    done
-
-    return 0
-}
-
-#----
 ## replace_macro
 ##  Replace @@ macros in all needed files in temporary directory.
 ## @return 0 	replacement done successfully
@@ -1103,7 +1134,7 @@ copy_in_tmp_dir() {
 ## @globals	TMP_DIR
 #----
 replace_macro() {
-    local srclistcp="bin cron config logrotate snmptrapd www tmpl install .env .env.local.php"
+    local srclistcp="$1"
 
     for folder in $srclistcp ; do
         find $TMP_DIR/source/$folder -type f | xargs --delimiter='\n' sed -i \
@@ -1123,6 +1154,7 @@ replace_macro() {
             -e 's|@BIN_RRDTOOL@|'"$RRDTOOL_BINARY"'|gi' \
             -e 's|@RRDTOOL_BINARY@|'"$RRDTOOL_BINARY"'|gi' \
             -e 's|@CROND_DIR@|'"$CROND_DIR"'|gi' \
+            -e 's|@SNMP_ETC_DIR@|'"$SNMP_ETC_DIR"'|gi' \
             -e 's|@SUDOERSD_ETC_DIR@|'"$SUDOERSD_ETC_DIR"'|gi' \
             -e 's|@CENTSTORAGE_RRD@|'"$CENTSTORAGE_RRD"'|gi' \
             -e 's|@CENTSTORAGE_RRD@|'"$CENTSTORAGE_RRD"'|gi' \
