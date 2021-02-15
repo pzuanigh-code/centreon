@@ -57,7 +57,6 @@ class BrokerConfigurationContext extends CentreonContext
 
         sleep(9999);
         $this->currentPage->save();
-
     }
 
     /**
