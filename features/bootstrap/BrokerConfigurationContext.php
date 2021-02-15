@@ -55,7 +55,9 @@ class BrokerConfigurationContext extends CentreonContext
         $this->assertFind('css', 'tbody#output_1 tr:nth-child(1) td.FormRowValue input.v_number')
             ->setValue($this->luaProperties['metricValue']);
 
+        sleep(9999);
         $this->currentPage->save();
+
     }
 
     /**
