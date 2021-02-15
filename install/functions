@@ -29,15 +29,15 @@
 #set -x
 
 ## VARS
-yes="$(gettext "y")"
-no="$(gettext "n")"
-ok="$(gettext "OK")"
-fail="$(gettext "FAIL")"
-notfound="$(gettext "NOT FOUND")"
-notdefined="$(gettext "NOT DEFINED")"
-passed="$(gettext "PASSED")"
-warning="$(gettext "WARNING")"
-critical="$(gettext "CRITICAL")"
+yes="y"
+no="n"
+ok="OK"
+fail="FAIL"
+notfound="NOT FOUND"
+notdefined="NOT DEFINED"
+passed="PASSED"
+warning="WARNING"
+critical="CRITICAL"
 # Init binary to empty to use pathfind or manual define
 GREP=""
 CAT=""
@@ -59,6 +59,7 @@ echo_title() {
     echo -e "\n"
     echo -e "$1"
     printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+    log "INFO" "$1"
 }
 
 #----
@@ -71,7 +72,7 @@ echo_title() {
 #----
 echo_info() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_INFO}${2}${SETCOLOR_NORMAL}"
-    echo -e "$1 : $2" >> $LOG_FILE
+    log "INFO" "$1 : $2"
 }
 
 #----
@@ -93,7 +94,7 @@ trim() {
 #----
 echo_success() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_SUCCESS}${2}${SETCOLOR_NORMAL}"
-    echo -e "$1 : $2" >> $LOG_FILE
+    log "SUCCESSS" "$1 : $2"
 }
 
 #----
@@ -106,7 +107,7 @@ echo_success() {
 #----
 echo_failure() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_FAILURE}${2}${SETCOLOR_NORMAL}"
-    echo -e "$1 : $2" >> $LOG_FILE
+    log "FAILURE" "$1 : $2"
 }
 
 #----
@@ -119,7 +120,7 @@ echo_failure() {
 #----
 echo_passed() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
-    echo -e "$1 : $2" >> $LOG_FILE
+    log "INFO" "$1 : $2"
 }
 
 #----
@@ -132,7 +133,7 @@ echo_passed() {
 #----
 echo_warning() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
-    echo -e "$1 : $2" >> $LOG_FILE
+    log "WARNING" "$1 : $2"
 }
 
 #----
@@ -942,7 +943,7 @@ copy_in_tmp_dir() {
     mkdir -p $TMP_DIR/source
 
     for folder in $srclistcp ; do
-        log "INFO" "$(gettext "Copy") $BASE_DIR/$folder $(gettext "to") $TMP_DIR/source/"
+        log "INFO" "Copy $BASE_DIR/$folder to $TMP_DIR/source/"
         cp -Rf $BASE_DIR/$folder $TMP_DIR/source
         if [ "$?" -ne 0 ] ; then
             return 1
@@ -970,8 +971,10 @@ replace_macro() {
             -e 's|@CENTREON_LOG_DIR@|'"$CENTREON_LOG_DIR"'|gi' \
             -e 's|@CENTREON_VARLIB@|'"$CENTREON_VARLIB_DIR"'|gi' \
             -e 's|@CENTREON_VARLIB_DIR@|'"$CENTREON_VARLIB_DIR"'|gi' \
-            -e 's|@BIN_RRDTOOL@|'"$RRDTOOL_BINRARY"'|gi' \
-            -e 's|@RRDTOOL_BINARY@|'"$RRDTOOL_BINRARY"'|gi' \
+            -e 's|@BIN_RRDTOOL@|'"$RRDTOOL_BINARY"'|gi' \
+            -e 's|@RRDTOOL_BINARY@|'"$RRDTOOL_BINARY"'|gi' \
+            -e 's|@CROND_DIR@|'"$CROND_DIR"'|gi' \
+            -e 's|@SUDOERSD_ETC_DIR@|'"$SUDOERSD_ETC_DIR"'|gi' \
             -e 's|@CENTSTORAGE_RRD@|'"$CENTSTORAGE_RRD"'|gi' \
             -e 's|@CENTSTORAGE_RRD@|'"$CENTSTORAGE_RRD"'|gi' \
             -e 's|@MONITORING_VARLOG@|'"$ENGINE_LOG_DIR"'|gi' \
@@ -989,6 +992,7 @@ replace_macro() {
             -e 's|@CENTREON_GROUP@|'"$CENTREON_GROUP"'|gi' \
             -e 's|@ENGINE_USER@|'"$ENGINE_USER"'|gi' \
             -e 's|@ENGINE_GROUP@|'"$ENGINE_GROUP"'|gi' \
+            -e 's|@ENGINE_ETC_DIR@|'"$ENGINE_ETC_DIR"'|gi' \
             -e 's|@ENGINE_BINARY@|'"$ENGINE_BINARY"'|gi' \
             -e 's|@ENGINE_LOG_DIR@|'"$ENGINE_LOG_DIR"'|gi' \
             -e 's|@ENGINE_CONNECTORS_DIR@|'"$ENGINE_CONNECTORS_DIR"'|gi' \
@@ -999,6 +1003,8 @@ replace_macro() {
             -e 's|@BROKER_MOD_BINARY@|'"$BROKER_MOD_BINARY"'|gi' \
             -e 's|@WEB_USER@|'"$APACHE_USER"'|gi' \
             -e 's|@APACHE_USER@|'"$APACHE_USER"'|gi' \
+            -e 's|@APACHE_DIR@|'"$APACHE_DIR"'|gi' \
+            -e 's|@APACHE_DIR@|'"$APACHE_CONF_DIR"'|gi' \
             -e 's|@WEB_GROUP@|'"$APACHE_GROUP"'|gi' \
             -e 's|@APACHE_GROUP@|'"$APACHE_GROUP"'|gi'\
             -e 's|@PHPFPM_LOG_DIR@|'"$PHPFPM_LOG_DIR"'|gi'\
@@ -1076,10 +1082,10 @@ get_timezone() {
 clean_and_exit() {
     local trap_sig=${1:-0}
     if [ $trap_sig -eq 0 ] ; then
-        echo -e "$(gettext "\nTrap interrupt, Centreon'll exit now and clean installation")"
-        yes_no_default "$(gettext "Do you really want to quit Centreon installation? ")" "$no"
+        echo -e "\nTrap interrupt, Centreon'll exit now and clean installation"
+        yes_no_default "Do you really want to quit Centreon installation?" "$no"
         if [ $? -eq 1 ] ; then
-            echo "$(gettext "Continue...")"
+            echo "Continue..."
             return 1
         fi
     fi
@@ -1103,7 +1109,7 @@ check_tmp_disk_space() {
     free_space=$(df -P $tmp_dir | tail -1 | awk '{print $4}')
 
     if [ "$free_space" -lt "$min_space" ] ; then
-        echo_failure "$(gettext "No space left on tmp dir") : $tmp_dir  (<$min_space Ko)" "$fail"
+        echo_failure "No space left on temporary directory '$tmp_dir' (<$min_space Ko)" "$fail"
         return 1
     else
         return 0
@@ -1123,7 +1129,7 @@ purge_centreon_tmp_dir() {
     local rc="0"
     while [ $not_clean -ne 0 ] ; do
         if [ "$silent" != "silent" ] ; then
-            yes_no_default "$(gettext "Do you want to remove the centreon temporary working space to continue installation ?")" "$yes"
+            yes_no_default "Do you want to remove the Centreon temporary working space to continue installation?" "$yes"
             rc=$?
         else
             rc=0

@@ -44,12 +44,11 @@ usage() {
 	echo -e "Usage: $program -f <file>"
 	echo -e "  -i\tinstall Centreon with interactive interface"
 	echo -e "  -s\tinstall Centreon silently"
-	echo -e "  -u\tupgrade Centreon specifying your directory with instCent* files"
-	# echo -e "  -v\tverbose mode"
+	echo -e "  -u\tupgrade Centreon specifying the directory of instCentWeb.conf file"
 	exit 1
 }
 
-# Define where are Centreon sources
+## Define where are Centreon sources
 BASE_DIR=$(dirname $0)
 BASE_DIR=$( cd $BASE_DIR; pwd )
 export BASE_DIR
@@ -65,10 +64,21 @@ export INSTALL_DIR
 ## Load all functions used in this script
 . $INSTALL_DIR/functions
 
+## Define a default log file
+LOG_FILE=${LOG_FILE:=log\/install_centreon.log}
+
+## Init LOG_FILE
+[ ! -d "$LOG_DIR" ] && mkdir -p "$LOG_DIR"
+if [ -e "$LOG_FILE" ] ; then
+	mv "$LOG_FILE" "$LOG_FILE.`date +%Y%m%d-%H%M%S`"
+fi
+${CAT} << __EOL__ > "$LOG_FILE"
+__EOL__
+
 # Checking installation script requirements
 BINARIES="rm cp mv ${CHMOD} ${CHOWN} echo more mkdir find ${GREP} ${CAT} ${SED}"
 binary_fail="0"
-# For the moment, I check if all binary exists in path.
+# For the moment, I check if all binary exists in PATH.
 # After, I must look a solution to use complet path by binary
 for binary in $BINARIES; do
 	if [ ! -e ${binary} ] ; then 
@@ -80,7 +90,7 @@ for binary in $BINARIES; do
 	fi
 done
 
-# Script stop if one binary is not found
+## Script stop if one binary is not found
 if [ "$binary_fail" -eq 1 ] ; then
 	echo_info "Please check failed binary and retry"
 	exit 1
@@ -88,17 +98,19 @@ else
 	echo_success "Script requirements" "$ok"
 fi
 
-## Load specific variables
+## Search distribution and version
 if [ -z "$DISTRIB" ] ; then
     find_os DISTRIB
 fi
 echo_info "Found distribution" "$DISTRIB"
 
+## Load specific variables based on distribution and version
 if [ -f $INSTALL_DIR/inputvars.$DISTRIB.env ]; then
     echo_info "Loading distribution specific input variables" "install/inputvars.$DISTRIB.env"
     source $INSTALL_DIR/inputvars.$DISTRIB.env
 fi
 
+## Load specific variables defined by user
 if [ -f $INSTALL_DIR/../inputvars.env ]; then
     echo_info "Loading user specific input variables" "inputvars.env"
     source $INSTALL_DIR/../inputvars.env
@@ -107,9 +119,6 @@ fi
 ## Use TRAPs to call clean_and_exit when user press
 ## CRTL+C or exec kill -TERM.
 trap clean_and_exit SIGINT SIGTERM
-
-## Define a default log file
-LOG_FILE=${LOG_FILE:=log\/install_centreon.log}
 
 ## Valid if you are root 
 if [ "${FORCE_NO_ROOT:-0}" -ne 0 ]; then
@@ -123,11 +132,8 @@ fi
 _tmp_install_opts="0"
 silent_install="0"
 upgrade="0"
-inst_upgrade_dir=""
-use_upgrade_files="0"
 
-## Getopts :)
-# When you use options, by default I set silent_install to 1.
+## Get options
 while getopts "if:u:hv" Options
 do
 	case ${Options} in
@@ -138,7 +144,7 @@ do
 			_tmp_install_opts="1"
 			;;
 		u )	silent_install="1"
-			inst_upgrade_dir="${OPTARG%/}"
+			UPGRADE_FILE="${OPTARG%/}"
 			upgrade="1" 
 			_tmp_install_opts="1"
 			;;
@@ -152,74 +158,8 @@ if [ "$_tmp_install_opts" -eq 0 ] ; then
 	exit 1
 fi
 
-# Export variable for all programs
-export silent_install user_install_vars inst_upgrade_dir upgrade
-
-## init LOG_FILE
-# backup old log file...
-[ ! -d "$LOG_DIR" ] && mkdir -p "$LOG_DIR"
-if [ -e "$LOG_FILE" ] ; then
-	mv "$LOG_FILE" "$LOG_FILE.`date +%Y%m%d-%H%M%S`"
-fi
-# Clean (and create) my log file
-${CAT} << __EOL__ > "$LOG_FILE"
-__EOL__
-
-# Init GREP,CAT,SED,CHMOD,CHOWN variables
+## Init GREP,CAT,SED,CHMOD,CHOWN variables
 define_specific_binary_vars
-
-echo_info "\nWelcome to Centreon installation script!"
-yes_no_default "Should we start?" "$yes"
-if [ "$?" -ne 0 ] ; then
-    echo_info "Exiting"
-    exit 1
-fi
-
-# When you exec this script without file, you must valid a GPL licence.
-# if [ "$silent_install" -ne 1 ] ; then 
-# 	echo -e "\nYou will now read Centreon Licence.\\n\\tPress enter to continue."
-# 	read 
-# 	tput clear 
-# 	more "$BASE_DIR/LICENSE.md"
-
-# 	yes_no_default "Do you accept GPL license ?" 
-# 	if [ "$?" -ne 0 ] ; then 
-# 		echo_info "As you did not accept the license, we cannot continue."
-# 		log "INFO" "Installation aborted - License not accepted"
-# 		exit 1
-# 	else
-# 		log "INFO" "Accepted the license"
-# 	fi
-# else 
-# 	if [ "$upgrade" -eq 0 ] ; then
-# 		. $user_install_vars
-# 	fi
-# fi
-
-if [ "$upgrade" -eq 1 ] ; then
-	# Test if instCent* file exist
-	if [ "$(ls $inst_upgrade_dir/instCent* | wc -l )" -ge 1 ] ; then
-		inst_upgrade_dir=${inst_upgrade_dir%/}
-		echo_title "Detecting old installation"
-		echo_success "Finding configuration file in: $inst_upgrade_dir" "$ok"
-		log "INFO" "Old configuration found in  $(ls $inst_upgrade_dir/instCent*)"
-		echo_info "You seem to have an existing Centreon.\n"
-		yes_no_default "Do you want to use the last Centreon install parameters ?" "$yes"
-		if [ "$?" -eq 0 ] ; then
-			echo_passed "\nUsing:  $(ls $inst_upgrade_dir/instCent*)" "$ok"
-			use_upgrade_files="1"
-		fi
-	fi
-fi
-
-if [ "$use_upgrade_files" -eq 1 ] ; then
-    if [ -e "$inst_upgrade_dir/instCentWeb.conf" ] ; then
-        log "INFO" "Load variables: $inst_upgrade_dir/instCentWeb.conf"
-        source $inst_upgrade_dir/instCentWeb.conf
-    fi
-fi
-
-# Start installation
 
 ## Check space of tmp dir
 check_tmp_disk_space
@@ -231,8 +171,45 @@ if [ "$?" -eq 1 ] ; then
     fi
 fi
 
+## Show license if installation is interactive
+if [ "$silent_install" -ne 1 ] ; then 
+    echo_info "\nWelcome to Centreon installation script!"
+    yes_no_default "Should we start?" "$yes"
+    if [ "$?" -ne 0 ] ; then
+        echo_info "Exiting"
+        exit 1
+    fi
+	echo_info -e "\nYou will now read Centreon Licence.\\n\\tPress enter to continue."
+	read 
+	tput clear 
+	more "$BASE_DIR/LICENSE.md"
+
+	yes_no_default "Do you accept the license?" 
+	if [ "$?" -ne 0 ] ; then 
+		echo_failure "Installation aborted - License not accepted" "$fail"
+		exit 1
+	else
+		echo_info "License accepted!"
+	fi
+fi
+
+# Start installation
+
 ERROR_MESSAGE=""
 export ERROR_MESSAGE
+
+## Load previous installation input variables if upgrade
+if [ "$upgrade" -eq 1 ] ; then
+    test_file "$UPGRADE_FILE" "Centreon upgrade file"
+    if [ "$?" -eq 0 ] ; then
+        echo_info "Loading previous installation input variables" "$UPGRADE_FILE"
+        source $UPGRADE_FILE
+    else
+        echo_failure "Missing previous installation input variables" "$fail"
+        echo_info "Either specify it in command line or using UPGRADE_FILE input variable"
+        exit 1
+	fi
+fi
 
 # Checking requirements
 echo_title "Centreon installation requirements"
@@ -307,8 +284,8 @@ test_dir_from_var "NAGIOS_PLUGINS_DIR" "Nagios Plugins directory"
 
 if [ ! -z "$ERROR_MESSAGE" ] ; then
     echo_failure "Installation requirements" "$fail"
-    echo_info "\nErrors:"
-    echo_info "$ERROR_MESSAGE"
+    echo_failure "\nErrors:"
+    echo_failure "$ERROR_MESSAGE"
     exit 1
 fi
 echo_success "Installation requirements" "$ok"
@@ -328,30 +305,23 @@ test_var_and_show "CENTREON_RUN_DIR" "Centreon run directory"
 test_var_and_show "CENTREON_USER" "Centreon user"
 test_var_and_show "CENTREON_GROUP" "Centreon group"
 test_var_and_show "CENTREONTRAPD_SPOOL_DIR" "Centreontrapd spool directory"
+test_var_and_show "USE_HTTPS" "Use HTTPS configuration"
 
 if [ ! -z "$ERROR_MESSAGE" ] ; then
-    echo_info "\nErrors:"
-    echo_info "$ERROR_MESSAGE"
+    echo_failure "\nErrors:"
+    echo_failure "$ERROR_MESSAGE"
     exit 1
 fi
 
-yes_no_default "Everything looks good, proceed to installation?"
-if [ "$?" -ne 0 ] ; then
-    purge_centreon_tmp_dir "silent"
-    exit 1
+if [ "$silent_install" -ne 1 ] ; then 
+    yes_no_default "Everything looks good, proceed to installation?"
+    if [ "$?" -ne 0 ] ; then
+        purge_centreon_tmp_dir "silent"
+        exit 1
+    fi
 fi
 
 # Start installation
-
-## Ask for HTTP/HTTPS
-if [ -z $USE_HTTPS ] ; then
-    yes_no_default "Deploy HTTPS configuration for Apache?"
-    if [ "$?" -eq 0 ] ; then
-        USE_HTTPS=1
-    else
-        USE_HTTPS=0
-    fi
-fi
 
 ## Disconnect user if upgrade
 if [ "$upgrade" = "1" ]; then
@@ -634,6 +604,8 @@ create_dir "$PHPFPM_VARLIB_DIR/session"
 create_dir "$PHPFPM_VARLIB_DIR/wsdlcache"
 set_ownership "$PHPFPM_VARLIB_DIR/session" "root" "$APACHE_USER"
 set_permissions "$PHPFPM_VARLIB_DIR/session" "770"
+set_ownership "$PHPFPM_CONF_DIR" "root" "$APACHE_USER"
+set_permissions "$PHPFPM_CONF_DIR" "775"
 copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm.conf" "$PHPFPM_CONF_DIR/centreon.conf" "PHP FPM configuration"
 if [ "$?" -eq 0 ] ; then restart_php_fpm="1" ; fi
 copy_file_no_replace "$TMP_DIR/source/install/src/php-fpm-systemd.conf" "$PHPFPM_SERVICE_DIR/centreon.conf" "PHP FPM service configuration"
