@@ -5,15 +5,6 @@
 ## @Copyright	Copyright 2008-2021, Centreon
 ## @License	GPL : http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 ## Centreon Install Script
-## Use 
-## <pre>
-## Usage: sh install.sh [OPTION]
-## Options:
-##  -f	Input file with all variables define (use for with template)
-##  -u	Input file with all variables define for update centreon
-##  -v	Verbose mode
-##  -h	print usage
-## </pre>
 #----
 ## Centreon is developed with GPL Licence 2.0
 ##
@@ -76,7 +67,7 @@ ${CAT} << __EOL__ > "$LOG_FILE"
 __EOL__
 
 # Checking installation script requirements
-BINARIES="rm cp mv ${CHMOD} ${CHOWN} echo more mkdir find ${GREP} ${CAT} ${SED}"
+BINARIES="rm cp mv chmod chown echo more mkdir find grep cat sed tr"
 binary_fail="0"
 # For the moment, I check if all binary exists in PATH.
 # After, I must look a solution to use complet path by binary
@@ -157,9 +148,6 @@ if [ "$_tmp_install_opts" -eq 0 ] ; then
 	usage
 	exit 1
 fi
-
-## Init GREP,CAT,SED,CHMOD,CHOWN variables
-define_specific_binary_vars
 
 ## Check space of tmp dir
 check_tmp_disk_space
@@ -243,7 +231,7 @@ fi
 ## PHP information
 find_phpfpm_info
 get_timezone
-test_value_from_var "PHP_TIMEZONE" "PHP timezone"
+test_var "PHP_TIMEZONE" "PHP timezone"
 test_dir_from_var "PHPFPM_LOG_DIR" "PHP FPM log directory"
 test_dir_from_var "PHPFPM_CONF_DIR" "PHP FPM configuration directory"
 test_dir_from_var "PHPFPM_SERVICE_DIR" "PHP FPM service directory"
@@ -627,7 +615,7 @@ if [ "$reload_apache" -eq 1 ] || [ "$restart_php_fpm" -eq 1 ] || [ "$restart_mar
 fi
 
 if [ "$reload_apache" -eq 1 ] ; then
-    enable_conf_apache
+    enable_conf "10-centreon"
     enable_service "$APACHE_SERVICE"
     reload_service "$APACHE_SERVICE"
 fi

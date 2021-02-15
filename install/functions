@@ -1,10 +1,10 @@
 #!/bin/bash
 #----
-## @Synopsis	This file contains functions to be used by Centreon install scripts
+## @Synopsis	This file contains functions to be used by Centreon install script
 ## @Copyright	Copyright 2008, Guillaume Watteeux
-## @Copyright	Copyright 2008-2020, Centreon
+## @Copyright	Copyright 2008-2021, Centreon
 ## @Licence	GPLv2
-## This file contains functions to be used by Centreon install scripts
+## This file contains functions to be used by Centreon install script
 #----
 ## Centreon is developed with GPL Licence 2.0
 ##
@@ -25,9 +25,6 @@
 ##
 ##    For information : infos@centreon.com
 
-# debug ?
-#set -x
-
 ## VARS
 yes="y"
 no="n"
@@ -38,15 +35,8 @@ notdefined="NOT DEFINED"
 passed="PASSED"
 warning="WARNING"
 critical="CRITICAL"
-# Init binary to empty to use pathfind or manual define
-GREP=""
-CAT=""
-SED=""
-CHMOD=""
-CHOWN=""
 
 ## COLOR FUNCTIONS
-
 RES_COL="60"
 MOVE_TO_COL="\\033[${RES_COL}G"
 SETCOLOR_INFO="\\033[1;38m"
@@ -55,6 +45,12 @@ SETCOLOR_FAILURE="\\033[1;31m"
 SETCOLOR_WARNING="\\033[1;33m"
 SETCOLOR_NORMAL="\\033[0;39m"
 
+#----
+## echo_title
+##  Print string in a title way. Also log in log file.
+## @param	string to display
+## @Stdout	titled string
+#----
 echo_title() {
     echo -e "\n"
     echo -e "$1"
@@ -63,12 +59,11 @@ echo_title() {
 }
 
 #----
-## print info message
-## add info message to log file
-## @param	message info
+## echo_info
+##  Print info message to screen and in log file.
+## @param	message
 ## @param	type info (ex: INFO, username...)
 ## @Stdout	info message
-## @Globals	LOG_FILE
 #----
 echo_info() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_INFO}${2}${SETCOLOR_NORMAL}"
@@ -76,21 +71,11 @@ echo_info() {
 }
 
 #----
-## Trim whitespaces and tabulations
-## @param	string to trim
-## @return	string
-#----
-trim() {
-    echo "$1" | sed 's/^[ \t]*\(.*\)[ \t]*$/\1/'
-}
-
-#----
-## print success message
-## add success message to log file
+## echo_success
+##  Print success message to screen and in log file.
 ## @param	message
 ## @param	word to specify success (ex: OK)
 ## @Stdout	success message
-## @Globals	LOG_FILE
 #----
 echo_success() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_SUCCESS}${2}${SETCOLOR_NORMAL}"
@@ -98,12 +83,11 @@ echo_success() {
 }
 
 #----
-## print failure message
-## add failure message to log file
+## echo_failure
+##  Print failure message to screen and in log file.
 ## @param	message
 ## @param	word to specify failure (ex: fail)
 ## @Stdout	failure message
-## @Globals	LOG_FILE
 #----
 echo_failure() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_FAILURE}${2}${SETCOLOR_NORMAL}"
@@ -111,25 +95,11 @@ echo_failure() {
 }
 
 #----
-## print passed message
-## add passed message to log file
-## @param	message
-## @param	word to specify pass (ex: passed)
-## @Stdout	passed message
-## @Globals	LOG_FILE
-#----
-echo_passed() {
-    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
-    log "INFO" "$1 : $2"
-}
-
-#----
-## print warning message
-## add warning message to log file
+## echo_warning
+##  Print warning message to screen and in log file.
 ## @param	message
 ## @param	word to specify warning (ex: warn)
 ## @Stdout	warning message
-## @Globals	LOG_FILE
 #----
 echo_warning() {
     echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
@@ -137,10 +107,11 @@ echo_warning() {
 }
 
 #----
-## add message on log file
+## log
+##  Add message in log file
 ## @param	type of message level (debug, info, ...)
 ## @param	message
-## @Globals	LOG_FILE
+## @globals	LOG_FILE
 #----
 log() {
     local program="$0"
@@ -150,91 +121,19 @@ log() {
     echo -e "[$program]:$type: $message" >> $LOG_FILE
 }
 
-
-# FUNCTIONS
 #----
-
-add_error_message() {
-    local append=""
-    local message="$1"
-    if [ ! -z "$ERROR_MESSAGE" ] ; then
-        append="\n"
-    fi
-    ERROR_MESSAGE="${ERROR_MESSAGE}$append  $message"
-}
-
-## find in $PATH if binary exist
-## @param	file to test
-## @return 0	found
-## @return 1	not found
-## @Globals	PATH
+## trim
+##  Trim whitespaces and tabulations
+## @param	string to trim
+## @return	string
 #----
-pathfind() {
-    OLDIFS="$IFS"
-    IFS=:
-    for p in $PATH; do
-        if [ -x "$p/$*" ]; then
-            IFS="$OLDIFS"
-            return 0
-        fi
-    done
-    IFS="$OLDIFS"
-    return 1
+trim() {
+    echo "$1" | sed 's/^[ \t]*\(.*\)[ \t]*$/\1/'
 }
 
 #----
-## find in $PATH if binary exist and return dirname
-## @param	file to test
-## @param	global variable to set a result
-## @return 0	found
-## @return 1	not found
-## @Globals	PATH
-#----
-pathfind_ret() {
-    local bin=$1
-    local var_ref=$2
-    local OLDIFS="$IFS"
-    IFS=:
-    for p in $PATH; do
-        if [ -x "$p/$bin" ]; then
-            IFS="$OLDIFS"
-            eval $var_ref=$p
-            return 0
-        fi
-    done
-    IFS="$OLDIFS"
-    return 1
-}
-
-#----
-## define a specific variables for grep,cat,sed,... binaries
-## This functions was been use in first line on your script
-## @return 0	All is't ok
-## @return 1	problem with one variable
-## @Globals	GREP, CAT, SED, CHMOD, CHOWN
-#----
-define_specific_binary_vars() {
-    local vars_bin="GREP CAT SED CHMOD CHOWN"
-    local var_bin_tolower=""
-    for var_bin in $vars_bin ; do
-        if [ -z $(eval echo \$$var_bin) ] ; then
-            var_bin_tolower="$(echo $var_bin | tr [:upper:] [:lower:])"
-            pathfind_ret "$var_bin_tolower" "$(echo -n $var_bin)"
-            if [ "$?" -eq 0 ] ; then
-                eval "$var_bin='$(eval echo \$$var_bin)/$var_bin_tolower'"
-                export $(echo $var_bin)
-                log "INFO" "$var_bin=$(eval echo \$$var_bin)"
-            else
-                return 1
-            fi
-        fi
-    done
-    return 0
-}
-
-#----
-## make a question with yes/no possiblity
-## use "no" response by default
+## yes_no_default
+##  Create a question with yes/no possiblity. Uses "no" response by default.
 ## @param	message to print
 ## @param 	default response (default to no)
 ## @return 0 	yes
@@ -244,6 +143,7 @@ yes_no_default() {
     local message=$1
     local default=${2:-$no}
     local res="not_define"
+
     while [ "$res" != "$yes" ] && [ "$res" != "$no" ] && [ ! -z "$res" ] ; do
         echo -en "\n$message"
         [ "$default" = "$yes" ] && echo " [Y/n]"
@@ -260,84 +160,127 @@ yes_no_default() {
 }
 
 #----
-## print a message, simple answer to the question
+## add_error_message
+##  Add an error message in global variable ERROR_MESSAGE.
+##  See this as an exceptions management. Used by test_* functions.
+## @param	message
+## @globals	ERROR_MESSAGE
 #----
-answer() {
-    local message=$1
-    local default=$2
-    local var_ref=$3
-    local res=""
-    local first=0
-    while [ -z "$res" ] ; do
-        echo -en "\n$message"
-        [ "$default" != "NO_DEFAULT" ] && echo " [$default]"
-        echo -en "> "
-        read res
-        if [ -z "$res" ] ; then
-            [ "$default" != "NO_DEFAULT" ] && res=$default
-        fi
-    done
-    eval $var_ref=$res
+add_error_message() {
+    local append=""
+    local message="$1"
+
+    if [ ! -z "$ERROR_MESSAGE" ] ; then
+        append="\n"
+    fi
+    ERROR_MESSAGE="${ERROR_MESSAGE}$append  $message"
+}
+
+#----
+## test_var
+##  Test a global variable valueexists.
+## @param	global variable (as string)
+## @param 	message to display as part of the returned error
+## @return 0 	show the message and value
+## @return 1 	add an error using add_error_message
+#----
+test_var() {
+    local var="$1"
+    local message="$2"
+    local value=$(eval echo \$$var)
+
+    if [ -z "$value" ] ; then
+        add_error_message "Missing value for variable '$var' ($message)"
+        return 1
+    fi
+
     return 0
 }
 
+#----
+## test_var_and_show
+##  Test a global variable value exists and show this value in a echo_info format.
+## @param	global variable (as string)
+## @param 	message to display as part of the echo_info or returned error
+## @return 0 	show the message and value
+## @return 1 	add an error using add_error_message
+#----
 test_var_and_show() {
     local var="$1"
     local message="$2"
     local value=$(eval echo \$$var)
+
     if [ -z "$value" ] ; then
         add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
+
     echo_info "$message" "$value"
+
     return 0
 }
 
-
-test_value_from_var() {
-    local var="$1"
-    local message="$2"
-    local value=$(eval echo \$$var)
-    if [ -z "$value" ] ; then
-        echo_failure "$message" "$notdefined"
-        requirements_failed="${requirements_failed} $var "
-        return 1
-    fi
-    return 0
-}
-
+#----
+## test_file
+##  Test a file existence.
+## @param	file absolute path
+## @param 	message to display as part of the returned error
+## @return 0 	file found
+## @return 1 	add an error using add_error_message
+#----
 test_file() {
     local file="$1"
     local message="$2"
+
     if [ -z "$file" ] ; then
         add_error_message "Missing value for test_file function"
         return 1
     fi
-    if [ ! -e $file ] ; then
+    if [ ! -f $file ] ; then
         add_error_message "Cannot find file '$file' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## test_file_from_var
+##  Test a file existence from a global variable.
+## @param	global variable (as string)
+## @param 	message to display as part of the returned error
+## @return 0 	file found
+## @return 1 	add an error using add_error_message
+#----
 test_file_from_var() {
     local var="$1"
     local message="$2"
     local file=$(eval echo \$$var)
+
     if [ -z "$file" ] ; then
         add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
-    if [ ! -e $file ] ; then
+    if [ ! -f $file ] ; then
         add_error_message "Cannot find file '$file' from variable '$var' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## test_dir
+##  Test a directory existence.
+## @param	directory absolute path
+## @param 	message to display as part of the returned error
+## @return 0 	directory found
+## @return 1 	add an error using add_error_message
+#----
 test_dir() {
     local dir="$1"
     local message="$2"
+
     if [ -z "$dir" ] ; then
         add_error_message "Missing value for test_dir function"
         return 1
@@ -346,13 +289,23 @@ test_dir() {
         add_error_message "Cannot find directory '$dir' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## test_dir_from_var
+##  Test a directory existence from a global variable.
+## @param	global variable (as string)
+## @param 	message to display as part of the returned error
+## @return 0 	directory found
+## @return 1 	add an error using add_error_message
+#----
 test_dir_from_var() {
     local var="$1"
     local message="$2"
     local dir=$(eval echo \$$var)
+
     if [ -z "$dir" ] ; then
         add_error_message "Missing value for variable '$var' ($message)"
         return 1
@@ -361,43 +314,72 @@ test_dir_from_var() {
         add_error_message "Cannot find directory '$dir' from variable '$var' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## test_user_from_var
+##  Test a user existence from a global variable.
+## @param	global variable (as string)
+## @param 	message to display as part of the returned error
+## @return 0 	user found
+## @return 1 	add an error using add_error_message
+#----
 test_user_from_var() {
     local var="$1"
     local message="$2"
     local user=$(eval echo \$$var)
+
     if [ -z "$user" ] ; then
         add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
-    ${GREP} "^$user:" /etc/passwd &>/dev/null
+    grep "^$user:" /etc/passwd &>/dev/null
     if [ $? -ne 0 ] ; then
         add_error_message "Cannot find user '$user' from variable '$var' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## test_group_from_var
+##  Test a group existence from a global variable.
+## @param	global variable (as string)
+## @param 	message to display as part of the returned error
+## @return 0 	group found
+## @return 1 	add an error using add_error_message
+#----
 test_group_from_var() {
     local var="$1"
     local message="$2"
     local group=$(eval echo \$$var)
+
     if [ -z "$group" ] ; then
         add_error_message "Missing value for variable '$var' ($message)"
         return 1
     fi
-    ${GREP} "^$group:" /etc/group &>/dev/null
+    grep "^$group:" /etc/group &>/dev/null
     if [ $? -ne 0 ] ; then
         add_error_message "Cannot find group '$group' from variable '$var' ($message)"
         return 1
     fi
+
     return 0
 }
 
+#----
+## create_dir
+##  Create a directory if it does not exist.
+## @param	directory absolute path
+## @return 0 	directory created
+## @return 1 	error message using echo_failure
+#----
 create_dir() {
     local dirname="$1"
+
     if [ ! -d "$dirname" ] ; then
         mkdir -p "$dirname"
         if [ $? -ne 0 ] ; then
@@ -405,12 +387,23 @@ create_dir() {
             return 1
         fi
     fi
+
     return 0
 }
 
+#----
+## copy_file
+##  Copy a file or multiple files (using wildcard) to a defined location.
+##  Simplistic but handles the needed cases.
+## @param	source, unique file absolute path or directory absolute path plus wildcard
+## @param	destination, can be unique file absolute path or directory absolute path
+## @return 0 	copy done successfully
+## @return 1 	error message using echo_failure
+#----
 copy_file() {
     local file="$1"
     local dest="$2"
+
     if [ ! -f "$file" ] && [[ ! "$file" =~ \*$ ]] ; then
         echo_failure "Not a file '$file'" "$fail"
         return 1
@@ -421,14 +414,26 @@ copy_file() {
             return 1
         fi
     fi
+
     return 0
 }
 
+#----
+## copy_file_no_replace
+##  Copy a file to a defined location.
+##  Simplistic but handles the needed cases.
+## @param	source, unique file absolute path
+## @param	destination, unique file absolute path
+## @return 0 	copy done successfully, returning echo_success message
+## @return 1 	error message using echo_failure
+## @return 2 	message copied as .new, returning echo_info message
+#----
 copy_file_no_replace() {
     local file="$1"
     local dest="$2"
     local message="$3"
     local exist=0
+
     if [ ! -f "$file" ] ; then
         echo_failure "Not a file '$file'" "$fail"
         return 1
@@ -441,7 +446,7 @@ copy_file_no_replace() {
         echo_failure "Copy of '$file' to '$dest'" "$fail"
         return 1
     elif [ $exist == "1" ] ; then
-        echo_passed "$message" "$dest"
+        echo_info "$message" "$dest"
         return 2
     else
         echo_success "$message" "$ok"
@@ -449,9 +454,19 @@ copy_file_no_replace() {
     fi
 }
 
+#----
+## copy_dir
+##  Copy a directory or a directory content (using wildcard) to a defined location.
+##  Simplistic but handles the needed cases.
+## @param	source, unique directory absolute path or directory absolute path plus wildcard
+## @param	destination, directory absolute path
+## @return 0 	copy done successfully
+## @return 1 	error message using echo_failure
+#----
 copy_dir() {
     local dir="$1"
     local dest="$2"
+
     if [ ! -d "$dir" ] && [[ ! "$dir" =~ \*$ ]] ; then
         echo_failure "Not a directory '$dirname'" "$fail"
         return 1
@@ -462,54 +477,78 @@ copy_dir() {
             return 1
         fi
     fi
+
     return 0
 }
 
+#----
+## set_ownership
+##  Set the ownership on a unique file or on a directory and its content (recursively).
+##  Simplistic but handles the needed cases.
+## @param	file or directory
+## @param	user
+## @param	group
+## @return 0 	ownership set successfully
+## @return 1 	error message using echo_failure
+#----
 set_ownership() {
     local dir_file="$1"
     local user="$2"
     local group="$3"
+
     if [ -z "$dir_file" ] ; then
         echo_info "File or directory not defined"
         return 1
     fi
     if [ -f "$dir_file" ] ; then
-        ${CHOWN} $user:$group "$dir_file"
+        chown $user:$group "$dir_file"
         if [ $? -ne 0 ] ; then
             echo_failure "Set ownership '$user:$group' on file '$dir_file'" "$fail"
             return 1
         fi
     elif [ -d "$dir_file" ] ; then
-        ${CHOWN} -R $user:$group "$dir_file"
+        chown -R $user:$group "$dir_file"
         if [ $? -ne 0 ] ; then
             echo_failure "Set ownership '$user:$group' on directory '$dir_file'" "$fail"
             return 1
         fi
     fi
+
     return 0
 }
 
+#----
+## set_permissions
+##  Set the permissions on a unique file, on a directory and its content (recursively)
+##  or on files in directories (recursively) if using wildcard.
+##  Simplistic but handles the needed cases.
+## @param	file or directory
+## @param	mode
+## @return 0 	permissions set successfully
+## @return 1 	error message using echo_failure
+#----
 set_permissions() {
     local dir_file="$1"
     local mode="$2"
+
     if [ -z "$dir_file" ] ; then
         echo_info "File or directory not defined"
         return 1
     fi
     if [ -f "$dir_file" ] ; then
-        find $dir_file -type f -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        chmod $mode $dir_file
         if [ $? -ne 0 ] ; then
             echo_failure "Set permissions '$mode' on file '$dir_file'" "$fail"
             return 1
         fi
     elif [ -d "$dir_file" ] ; then
-        find $dir_file -type d -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        find $dir_file -type d -print | xargs -I '{}' chmod $mode '{}'
         if [ $? -ne 0 ] ; then
-            echo_failure "Set permissions '$mode' on directory '$dir_file'" "$fail"
+            echo_failure "Set permissions '$mode' on directories in '$dir_file'" "$fail"
             return 1
         fi
     elif [[ "$dir_file" =~ \*$ ]]  ; then
-        find $dir_file -type f -print | xargs -I '{}' ${CHMOD} $mode '{}'
+        find $dir_file -type f -print | xargs -I '{}' chmod $mode '{}'
         if [ $? -ne 0 ] ; then
             echo_failure "Set permissions '$mode' on files in '$dir_file'" "$fail"
             return 1
@@ -518,9 +557,19 @@ set_permissions() {
         echo_failure "Not a file or a directory '$dir_file'" "$fail"
         return 1
     fi
+
     return 0
 }
 
+#----
+## create_user
+##  Create a user if does not exist (checked using test_user).
+## @param	username
+## @param	groupname
+## @param	user's home
+## @return 0 	user created successfully
+## @return 1 	creation failed
+#----
 create_user() {
     local username="$1"
     local groupname="$2"
@@ -533,9 +582,17 @@ create_user() {
         check_result $ret "Create user '$username'"
         return $ret
     fi
+
     return 0
 }
 
+#----
+## create_group
+##  Create a group if does not exist (checked using test_group).
+## @param	groupname
+## @return 0 	group created successfully
+## @return 1 	creation failed
+#----
 create_group() {
     local groupname="$1"
 
@@ -546,26 +603,41 @@ create_group() {
         check_result $ret "Create group '$groupname'"
         return $ret
     fi
+
     return 0
 }
 
+#----
+## test_user
+##  Test a user existence.
+## @param	user
+## @return 0 	user exists
+## @return 1 	user does not exist
+#----
 test_user() {
-    ${GREP} "^$1:" /etc/passwd &>/dev/null
-    return $?
-}
-
-test_group() {
-    ${GREP} "^$1:" /etc/group &>/dev/null
+    grep "^$1:" /etc/passwd &>/dev/null
     return $?
 }
 
 #----
-## Add a group to a user
-## @param	user name
-## @param	group name
-## @Globals	fail
-## @return 0 	 end
-## @return 1 	 fail
+## test_group
+##  Test a group existence.
+## @param	user
+## @return 0 	group exists
+## @return 1 	group does not exist
+#----
+test_group() {
+    grep "^$1:" /etc/group &>/dev/null
+    return $?
+}
+
+#----
+## add_user_to_group
+##  Add a user in a group
+## @param	user
+## @param	group
+## @return 0 	add successfull 
+## @return 1 	add failed
 #----
 add_user_to_group() {
     local user=$1
@@ -584,30 +656,23 @@ add_user_to_group() {
         echo_failure "Group '$group' does not exist" "$fail"
         return 1
     fi
-    if [ $(id -nG "$user" | ${GREP} "$group" | wc -l) -gt "0" ] ; then
+    if [ $(id -nG "$user" | grep "$group" | wc -l) -gt "0" ] ; then
         echo_info "Add user '$user' to group '$group'" "$passed"
         return 0
     fi
     usermod -a -G $group $user &>/dev/null
     local ret=$?
     check_result $ret "Add user '$user' to group '$group'"
+
     return $ret
 }
 
 #----
-## Check php version which should be greater than the minimum version required
-## @Globals	PHP_BIN, PHP_MIN_VERSION
+## find_perl_info
+##  Find Perl information.
+## @return 0 	search done
+## @globals	PERL_LIB_DIR
 #----
-test_php_version() {
-    local php_version=$($PHP_BINARY --version | head -n 1 | cut -d " " -f 2 | cut -c 1,3)
-    if [ "$php_version" -lt "$PHP_MIN_VERSION" ] ; then
-        add_error_message "Minimum PHP version required is '$PHP_MIN_VERSION', found '$php_version'"
-        return 1
-    fi
-    return 0
-}
-
-
 find_perl_info() {
     if [ -z $PERL_LIB_DIR ] ; then
         PERL_LIB_DIR=$(perl -V:installvendorlib | cut -d "'" -f 2)
@@ -623,63 +688,108 @@ find_perl_info() {
     return 0
 }
 
-enable_conf_apache() {
-    if [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -eq "0" ] ; then
+#----
+## enable_conf
+##  Enable the configuration for Debian distribution.
+## @return 0 	enabling ok (or not needed)
+## @return 0 	enabling failed
+#----
+enable_conf() {
+    local conf="$1"
+
+    if [ $(/bin/systemctl list-units | grep apache2 | wc -l) -eq "0" ] ; then
         return 0
     fi
 
-    a2enconf 10-centreon  >> $LOG_FILE 2>&1
+    a2enconf "$conf"
     local ret=$?
-    check_result $ret "Enabling Apache configuration '10-centreon'"
+    check_result $ret "Enabling Apache configuration '$conf'"
     return $ret
 }
 
+#----
+## enable_service
+##  Enable a systemd service.
+## @return 0 	enabling ok
+## @return 0 	enabling failed
+#----
 enable_service() {
     local service="$1"
 
     if [ -x /bin/systemctl ] ; then
-        /bin/systemctl enable $service >> $LOG_FILE 2>&1
+        /bin/systemctl enable $service
         local ret=$?
         check_result $ret "Enabling service '$service'"
         return $ret
     fi
+
     return 1
 }
 
+#----
+## reload_service
+##  Reload a systemd service.
+## @return 0 	reloading ok
+## @return 0 	reloading failed
+#----
 reload_service() {
     local service="$1"
 
     if [ -x /bin/systemctl ] ; then
-        /bin/systemctl reload $service >> $LOG_FILE 2>&1
+        /bin/systemctl reload $service
         local ret=$?
         check_result $ret "Reloading service '$service'"
         return $ret
     fi
+
     return 1
 }
 
+#----
+## restart_service
+##  Restart a systemd service.
+## @return 0 	restarting ok
+## @return 0 	restarting failed
+#----
 restart_service() {
     local service="$1"
 
     if [ -x /bin/systemctl ] ; then
-        /bin/systemctl restart $service >> $LOG_FILE 2>&1
+        /bin/systemctl restart $service
         local ret=$?
         check_result $ret "Restarting service '$service'"
         return $ret
     fi
+
     return 1
 }
 
+#----
+## reload_daemon
+##  Reload systemd daemon.
+## @return 0 	reload ok
+## @return 0 	reload failed
+#----
 reload_daemon() {
     if [ -x /bin/systemctl ] ; then
-        /bin/systemctl daemon-reload >> $LOG_FILE 2>&1
+        /bin/systemctl daemon-reload
         local ret=$?
         check_result $ret "Reload systemctl daemon"
         return $ret
     fi
+
     return 1
 }
 
+#----
+## deploy_sysconfig
+##  Deploy a sysconfig file for a specified service.
+##  Copied to /etc/default for Debian.
+## @param	service
+## @param	sysconfig file
+## @return 0 	deploy ok
+## @return 0 	deploy failed
+#----
 deploy_sysconfig() {
     local service="$1"
     local file="$2"
@@ -701,8 +811,11 @@ deploy_sysconfig() {
 }
 
 #----
-## Check PHP FPM configuration directory
-## @Globals	PHPFPM_CONF_DIR
+## find_phpfpm_info
+##  Find PHP FPM information.
+## @return 0 	search done
+## @globals	PHPFPM_CONF_DIR PHPFPM_LOG_DIR PHPFPM_SERVICE
+#----
 find_phpfpm_info() {
     # PHP FPM lcog directory
     if [ -z "$PHPFPM_CONF_DIR" ] ; then
@@ -739,8 +852,8 @@ find_phpfpm_info() {
     # PHP FPM service
     if [ -z $PHPFPM_SERVICE ] ; then
         if [ -x /bin/systemctl ] ; then
-            if [ $(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | wc -l) -gt "0" ] ; then
-                PHPFPM_SERVICE=$(/bin/systemctl list-units | ${GREP} php | ${GREP} fpm | cut -f 3 -d " ")
+            if [ $(/bin/systemctl list-units | grep php | grep fpm | wc -l) -gt "0" ] ; then
+                PHPFPM_SERVICE=$(/bin/systemctl list-units | grep php | grep fpm | cut -f 3 -d " ")
             fi
         fi
     fi
@@ -750,6 +863,12 @@ find_phpfpm_info() {
     return 0
 }
 
+#----
+## find_mariadb_info
+##  Find PHP FPM information.
+## @return 0 	search done
+## @globals	MARIADB_CONF_DIR MARIADB_SERVICE
+#----
 find_mariadb_info() {
     # MariaDB configuration directory
     if [ -z "$MARIADB_CONF_DIR" ] ; then
@@ -766,9 +885,9 @@ find_mariadb_info() {
     # MariaDB service
     if [ -z $MARIADB_SERVICE ] ; then
         if [ -x /bin/systemctl ] ; then
-            if [ $(/bin/systemctl list-units | ${GREP} mariadb | wc -l) -gt "0" ] ; then
+            if [ $(/bin/systemctl list-units | grep mariadb | wc -l) -gt "0" ] ; then
                 MARIADB_SERVICE="mariadb"
-            elif [ $(/bin/systemctl list-units | ${GREP} mysql | wc -l) -gt "0" ] ; then
+            elif [ $(/bin/systemctl list-units | grep mysql | wc -l) -gt "0" ] ; then
                 MARIADB_SERVICE="mysql"
             fi
         fi
@@ -780,9 +899,30 @@ find_mariadb_info() {
 }
 
 #----
-## Define where is Apache config directory
-## @return 0
-## @Globals	APACHE_DIR, APACHE_CONF_DIR, APACHE_CONF
+## test_php_version
+##  Test PHP version compared to minimal version.
+## @param	user
+## @param	group
+## @return 0 	version is ok
+## @return 1 	add an error using add_error_message
+## @globals	PHP_BINARY PHP_MIN_VERSION
+#----
+test_php_version() {
+    local php_version=$($PHP_BINARY --version | head -n 1 | cut -d " " -f 2 | cut -c 1,3)
+
+    if [ "$php_version" -lt "$PHP_MIN_VERSION" ] ; then
+        add_error_message "Minimum PHP version required is '$PHP_MIN_VERSION', found '$php_version'"
+        return 1
+    fi
+
+    return 0
+}
+
+#----
+## find_apache_info
+##  Find Apache information.
+## @return 0 	search done
+## @globals	APACHE_DIR APACHE_CONF_DIR APACHE_CONF APACHE_USER APACHE_GROUP APACHE_SERVICE
 #----
 find_apache_info() {
     # Apache directories
@@ -844,25 +984,25 @@ find_apache_info() {
     if [ -z "$APACHE_USER" ] ; then
         if [ -e /etc/apache2/envvars ] ; then
             # Debian
-            APACHE_USER=`${CAT} /etc/apache2/envvars |${GREP} "USER" | cut -d= -f2`
+            APACHE_USER=`cat /etc/apache2/envvars |grep "USER" | cut -d= -f2`
             if [ ! -z "$APACHE_USER" ] ; then
                 found=1
             fi
         elif [ -e /etc/apache2/uid.conf ] ; then
             # SUSE
-            APACHE_USER=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^User" | cut -d" " -f2`
+            APACHE_USER=`cat /etc/apache2/uid.conf |grep -e "^User" | cut -d" " -f2`
             if [ ! -z "$APACHE_USER" ] ; then
                 found=1
             fi
         fi
         if [ "$found" -eq 0 ] ; then
-            APACHE_USER=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^User" | cut -d" " -f2`
+            APACHE_USER=`cat $APACHE_DIR/$APACHE_CONF | grep -e "^User" | cut -d" " -f2`
             if [ -z "$APACHE_USER"  ] ; then
                 local APACHE_USER_TEMP=""
                 for fichier in $APACHE_DIR/*
                 do
                     if [ -f "$fichier" ] ; then
-                        APACHE_USER_TEMP=`${CAT} $fichier | ${GREP} -e "^User" | cut -d" " -f2`
+                        APACHE_USER_TEMP=`cat $fichier | grep -e "^User" | cut -d" " -f2`
                         if [ -n "$APACHE_USER_TEMP" ] ; then
                             APACHE_USER=$APACHE_USER_TEMP
                         fi
@@ -879,25 +1019,25 @@ find_apache_info() {
     if [ -z "$APACHE_GROUP" ] ; then
         if [ -e /etc/apache2/envvars ] ; then
             # Debian
-            APACHE_GROUP=`${CAT} /etc/apache2/envvars |${GREP} "GROUP" |cut -d= -f2`
+            APACHE_GROUP=`cat /etc/apache2/envvars |grep "GROUP" |cut -d= -f2`
             if [ ! -z "$APACHE_GROUP" ] ; then
                 found=1
             fi
         elif [ -e /etc/apache2/uid.conf ] ; then
             # SUSE
-            APACHE_GROUP=`${CAT} /etc/apache2/uid.conf |${GREP} -e "^Group" | cut -d" " -f2`
+            APACHE_GROUP=`cat /etc/apache2/uid.conf |grep -e "^Group" | cut -d" " -f2`
             if [ ! -z "$APACHE_GROUP" ] ; then
                 found=1
             fi
         fi
         if [ "$found" -eq 0 ] ; then
-            APACHE_GROUP=`${CAT} $APACHE_DIR/$APACHE_CONF | ${GREP} -e "^Group" | cut -d" " -f2`
+            APACHE_GROUP=`cat $APACHE_DIR/$APACHE_CONF | grep -e "^Group" | cut -d" " -f2`
             if [  -z "$APACHE_GROUP"  ] ; then
                 local APACHE_GROUP_TMP=""
                 for fichier in $APACHE_DIR/*
                 do
                     if [ -f "$fichier" ];	then
-                        APACHE_GROUP_TEMP=`${CAT} $fichier | ${GREP} -e "^Group" | cut -d" " -f2`
+                        APACHE_GROUP_TEMP=`cat $fichier | grep -e "^Group" | cut -d" " -f2`
                         if [ -n "$APACHE_GROUP_TEMP" ]; then
                             APACHE_GROUP=$APACHE_GROUP_TEMP
                         fi
@@ -912,11 +1052,11 @@ find_apache_info() {
     # Apache service
     if [ -z $APACHE_SERVICE ] ; then
         if [ -x /bin/systemctl ] ; then
-            if [ $(/bin/systemctl list-units | ${GREP} httpd24-httpd | wc -l) -gt "0" ] ; then
+            if [ $(/bin/systemctl list-units | grep httpd24-httpd | wc -l) -gt "0" ] ; then
                 APACHE_SERVICE="httpd24-httpd"
-            elif [ $(/bin/systemctl list-units | ${GREP} httpd | wc -l) -gt "0" ] ; then
+            elif [ $(/bin/systemctl list-units | grep httpd | wc -l) -gt "0" ] ; then
                 APACHE_SERVICE="httpd"
-            elif [ $(/bin/systemctl list-units | ${GREP} apache2 | wc -l) -gt "0" ] ; then
+            elif [ $(/bin/systemctl list-units | grep apache2 | wc -l) -gt "0" ] ; then
                 APACHE_SERVICE="apache2"
             fi
         fi
@@ -928,15 +1068,17 @@ find_apache_info() {
 }
 
 #----
-## Copy Source directory on temporary working directory
-## Copy Source directory and prepare work and final
-## @Globals	TMP_DIR
+## copy_in_tmp_dir
+##  Copy source files to temporary directory.
+## @return 0 	copy done successfully
+## @return 1 	copy failed
+## @globals	BASE_DIR TMP_DIR
 #----
 copy_in_tmp_dir() {
     local srclistcp="bin cron config logrotate GPL_LIB lib snmptrapd src vendor www api tmpl install .env .env.local.php bootstrap.php container.php composer.json package.json package-lock.json"
 
     if [ -d $TMP_DIR ] ; then
-        echo_passed "Directory '$TMP_DIR' already exists, moving it..."
+        echo_info "Directory '$TMP_DIR' already exists, moving it..."
         mv $TMP_DIR $TMP_DIR.`date +%Y%m%d-%k%m%S`
     fi
 
@@ -953,6 +1095,13 @@ copy_in_tmp_dir() {
     return 0
 }
 
+#----
+## replace_macro
+##  Replace @@ macros in all needed files in temporary directory.
+## @return 0 	replacement done successfully
+## @return 1 	replacement failed
+## @globals	TMP_DIR
+#----
 replace_macro() {
     local srclistcp="bin cron config logrotate snmptrapd www tmpl install .env .env.local.php"
 
@@ -1019,12 +1168,11 @@ replace_macro() {
 }
 
 #----
-## Define OS
-## check on etc to find a specific file <p>
-## Debian, Suse, Redhat, FreeBSD
+## find_os
+##  Search OS distribution and version
 ## @param	variable to set a result
-## @return 0	OS found
-## @return 1	OS not found
+## @return 0 	search done
+## @globals	TMP_DIR
 #----
 find_os() {
     local distrib=$1
@@ -1060,27 +1208,33 @@ find_os() {
     fi
 
     eval $distrib=$dist_found
+
     return 0
 }
 
+#----
+## get_timezone
+##  Search system timezone.
+## @return 0 	search done
+## @globals	PHP_TIMEZONE
+#----
 get_timezone() {
     if [ -z "$PHP_TIMEZONE" ] ; then
         PHP_TIMEZONE=$(realpath /etc/localtime --relative-to=/usr/share/zoneinfo/)
     fi
 
     export PHP_TIMEZONE
+
+    return 0
 }
 
 #----
-## use this function to clean and exit centreon install
-## This function use <@function purge_centreon_tmp_dir> function.
-## TODO: Need to add functionality
-##      - delete install file
-##      - restore inital rigth
-##      - ...
+## clean_and_exit
+##  Function to clean and exit Centreon install using purge_centreon_tmp_dir functionn, and exit.
 #----
 clean_and_exit() {
     local trap_sig=${1:-0}
+
     if [ $trap_sig -eq 0 ] ; then
         echo -e "\nTrap interrupt, Centreon'll exit now and clean installation"
         yes_no_default "Do you really want to quit Centreon installation?" "$no"
@@ -1089,15 +1243,18 @@ clean_and_exit() {
             return 1
         fi
     fi
+
     purge_centreon_tmp_dir "silent"
+
     exit 1
 }
 
 #----
-## Check space left for working directory
-## @return 0	Space ok
-## @return 1	No Space left
-## @Globals	TMP_DIR
+## check_tmp_disk_space
+##  Check space left for working directory.
+## @return 0	space ok
+## @return 1	no Space left
+## @globals	TMP_DIR
 #----
 check_tmp_disk_space() {
     local min_space="35584"
@@ -1117,11 +1274,12 @@ check_tmp_disk_space() {
 }
 
 #----
-## Ask to remove all temporaries working directory
+## purge_centreon_tmp_dir
+##  Ask to remove all temporaries working directory.
 ## @param     silent option (silent)
 ## @return 0	remove done
 ## @return 1	don't remove (abort by user)
-## @Globals	TMP_DIR, yes
+## @globals	TMP_DIR
 #----
 purge_centreon_tmp_dir() {
     local silent="$1"
@@ -1148,7 +1306,8 @@ purge_centreon_tmp_dir() {
 }
 
 #----
-## Check result and print a message
+## check_result
+##  Check result and print a message using echo_success or echo_failure
 ## @param	return code to check
 ## @param	message to print
 #----
